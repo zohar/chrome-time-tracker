@@ -229,11 +229,12 @@ class TimeTracker {
         const increment = e.key === 'ArrowUp' ? 1 : -1;
         
         // Determine which part to modify based on cursor position
+        // Format: HH:MM:SS (positions 0-1: hours, 3-4: minutes, 6-7: seconds)
         if (cursorPos <= 2) {
-          // Hours (max 23)
+          // Hours section (positions 0-2, including the colon)
           hours = Math.max(0, Math.min(23, hours + increment));
         } else if (cursorPos <= 5) {
-          // Minutes
+          // Minutes section (positions 3-5, including the colon)
           minutes += increment;
           if (minutes >= 60) {
             minutes = 0;
@@ -243,7 +244,7 @@ class TimeTracker {
             hours = Math.max(0, hours - 1);
           }
         } else {
-          // Seconds
+          // Seconds section (positions 6-7)
           seconds += increment;
           if (seconds >= 60) {
             seconds = 0;
