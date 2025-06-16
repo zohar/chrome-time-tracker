@@ -416,8 +416,9 @@ class TimeTracker {
       if (!titleInput) return;
       
       const title = titleInput.value.trim();
-      const customer = customerSelect ? customerSelect.value || this.state.customers[0] : this.state.customers[0];
-      const project = projectSelect ? projectSelect.value || this.state.projects[0] : this.state.projects[0];
+      // Allow empty customer and project - don't default to first item
+      const customer = customerSelect ? customerSelect.value : '';
+      const project = projectSelect ? projectSelect.value : '';
       
       // Use billable toggle state or default setting
       let billable = false;
@@ -545,12 +546,12 @@ class TimeTracker {
       document.getElementById('editTaskTitle').value = task.title || '';
       document.getElementById('editBillable').checked = task.billable || false;
       
-      // Update dropdowns
-      this.updateEditDropdowns();
+      // Update datalists
+      this.populateEditDatalists();
       
       // Set selected values
-      document.getElementById('editCustomerSelect').value = task.customer || '';
-      document.getElementById('editProjectSelect').value = task.project || '';
+      document.getElementById('editCustomerInput').value = task.customer || '';
+      document.getElementById('editProjectInput').value = task.project || '';
       
       // For current tasks, calculate current duration including active time
       let currentDuration = Number(task.duration) || 0;
@@ -599,22 +600,20 @@ class TimeTracker {
     }
   }
 
-  updateEditDropdowns() {
+  populateEditDatalists() {
     try {
-      const customerSelect = document.getElementById('editCustomerSelect');
-      const projectSelect = document.getElementById('editProjectSelect');
+      const customerDatalist = document.getElementById('editCustomerDatalist');
+      const projectDatalist = document.getElementById('editProjectDatalist');
       
-      if (customerSelect) {
-        customerSelect.innerHTML = '<option value="">Select Customer</option>' +
-          this.state.customers.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (customerDatalist) {
+        customerDatalist.innerHTML = this.state.customers.map(c => `<option value="${c}">`).join('');
       }
       
-      if (projectSelect) {
-        projectSelect.innerHTML = '<option value="">Select Project</option>' +
-          this.state.projects.map(p => `<option value="${p}">${p}</option>`).join('');
+      if (projectDatalist) {
+        projectDatalist.innerHTML = this.state.projects.map(p => `<option value="${p}">`).join('');
       }
     } catch (error) {
-      console.error('Error updating edit dropdowns:', error);
+      console.error('Error populating edit datalists:', error);
     }
   }
 
@@ -634,8 +633,8 @@ class TimeTracker {
       
       // Get form values
       const title = document.getElementById('editTaskTitle').value.trim();
-      const customer = document.getElementById('editCustomerSelect').value || this.state.customers[0];
-      const project = document.getElementById('editProjectSelect').value || this.state.projects[0];
+      const customer = document.getElementById('editCustomerInput').value.trim();
+      const project = document.getElementById('editProjectInput').value.trim();
       const billable = document.getElementById('editBillable').checked;
       const startTimeStr = document.getElementById('editStartTime').value;
       const endTimeStr = document.getElementById('editEndTime').value;
@@ -683,6 +682,23 @@ class TimeTracker {
         }
       }
       
+      // Check if customer or project are new and need to be added
+      let updatedCustomers = [...this.state.customers];
+      let updatedProjects = [...this.state.projects];
+      let needsSettingsUpdate = false;
+      
+      if (customer && !this.state.customers.includes(customer)) {
+        updatedCustomers.push(customer);
+        updatedCustomers.sort();
+        needsSettingsUpdate = true;
+      }
+      
+      if (project && !this.state.projects.includes(project)) {
+        updatedProjects.push(project);
+        updatedProjects.sort();
+        needsSettingsUpdate = true;
+      }
+      
       // For current tasks, we need to handle the timing differently
       let taskData = {
         ...this.editingTask,
@@ -706,6 +722,19 @@ class TimeTracker {
       
       if (response && response.success) {
         console.log('Popup: Task updated successfully');
+        
+        // Update settings if new customers or projects were added
+        if (needsSettingsUpdate) {
+          await this.sendMessageWithRetry({
+            action: 'updateSettings',
+            data: {
+              customers: updatedCustomers,
+              projects: updatedProjects,
+              settings: this.state.settings
+            }
+          });
+        }
+        
         this.closeEditModal();
         // Force UI update to reflect changes immediately
         await this.loadInitialState();
@@ -839,8 +868,8 @@ class TimeTracker {
         const billableEl = document.getElementById('currentTaskBillable');
         
         if (titleEl) titleEl.textContent = this.state.currentTask.title;
-        if (customerEl) customerEl.textContent = this.state.currentTask.customer;
-        if (projectEl) projectEl.textContent = this.state.currentTask.project;
+        if (customerEl) customerEl.textContent = this.state.currentTask.customer || 'No Customer';
+        if (projectEl) projectEl.textContent = this.state.currentTask.project || 'No Project';
         if (billableEl) billableEl.style.display = this.state.currentTask.billable ? 'inline-flex' : 'none';
         
         // Update timer immediately
@@ -858,8 +887,8 @@ class TimeTracker {
         const timerEl = document.getElementById('pausedTaskTimer');
         
         if (titleEl) titleEl.textContent = this.state.pausedTask.title;
-        if (customerEl) customerEl.textContent = this.state.pausedTask.customer;
-        if (projectEl) projectEl.textContent = this.state.pausedTask.project;
+        if (customerEl) customerEl.textContent = this.state.pausedTask.customer || 'No Customer';
+        if (projectEl) projectEl.textContent = this.state.pausedTask.project || 'No Project';
         if (billableEl) billableEl.style.display = this.state.pausedTask.billable ? 'inline-flex' : 'none';
         if (timerEl) timerEl.textContent = this.formatDuration(this.state.pausedTask.duration);
         
@@ -995,7 +1024,7 @@ class TimeTracker {
           <div class="task-item-info">
             <div class="task-item-title">${task.title}</div>
             <div class="task-item-meta">
-              ${task.customer} • ${task.project}
+              ${task.customer || 'No Customer'} • ${task.project || 'No Project'}
               ${task.billable ? '<span class="billable-indicator">💰</span>' : ''}
             </div>
           </div>

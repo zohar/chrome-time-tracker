@@ -126,16 +126,18 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="editCustomerSelect">Customer</label>
-            <select id="editCustomerSelect" class="select-field">
-              <option value="">Select Customer</option>
-            </select>
+            <label for="editCustomerInput">Customer</label>
+            <input type="text" id="editCustomerInput" class="input-field" list="editCustomerDatalist" placeholder="Enter or select customer">
+            <datalist id="editCustomerDatalist">
+              <!-- Options populated dynamically -->
+            </datalist>
           </div>
           <div class="form-group">
-            <label for="editProjectSelect">Project</label>
-            <select id="editProjectSelect" class="select-field">
-              <option value="">Select Project</option>
-            </select>
+            <label for="editProjectInput">Project</label>
+            <input type="text" id="editProjectInput" class="input-field" list="editProjectDatalist" placeholder="Enter or select project">
+            <datalist id="editProjectDatalist">
+              <!-- Options populated dynamically -->
+            </datalist>
           </div>
         </div>
         <div class="form-group">
