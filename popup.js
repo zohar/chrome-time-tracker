@@ -803,13 +803,13 @@ class TimeTracker {
         await this.loadInitialState();
         this.updateUI();
       } else {
-        console.error('Popup: Failed to delete task:', response);
-        alert('Failed to delete task. Please try again.');
+        console.error('Popup: Failed to delete task:', response?.error || 'Unknown error');
+        alert(`Failed to delete task: ${response?.error || 'Unknown error'}`);
       }
       
     } catch (error) {
       console.error('Error deleting task directly:', error);
-      alert('Failed to delete task. Please try again.');
+      alert(`Failed to delete task: ${error.message}`);
     }
   }
 
