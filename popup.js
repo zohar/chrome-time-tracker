@@ -3,6 +3,7 @@ class TimeTracker {
     // UI-only state - no persistent data stored here
     this.currentPeriod = 'today';
     this.editingTask = null;
+    this.lastEditedField = null; // Track which field was last edited
     this.state = {
       currentTask: null,
       pausedTask: null,
@@ -182,9 +183,21 @@ class TimeTracker {
       const editDuration = document.getElementById('editDuration');
       
       if (editStartTime && editEndTime && editDuration) {
-        // Listen for changes in start time and duration fields
-        editStartTime.addEventListener('input', () => this.handleEditTimeChange('start'));
-        editDuration.addEventListener('input', () => this.handleEditTimeChange('duration'));
+        // Listen for changes in all three fields
+        editStartTime.addEventListener('input', () => {
+          this.lastEditedField = 'start';
+          this.handleEditTimeChange();
+        });
+        
+        editEndTime.addEventListener('input', () => {
+          this.lastEditedField = 'end';
+          this.handleEditTimeChange();
+        });
+        
+        editDuration.addEventListener('input', () => {
+          this.lastEditedField = 'duration';
+          this.handleEditTimeChange();
+        });
         
         // Add keyboard navigation for duration field
         editDuration.addEventListener('keydown', (e) => this.handleDurationKeyboard(e));
@@ -269,15 +282,16 @@ class TimeTracker {
           input.setSelectionRange(cursorPos, cursorPos);
         }, 0);
         
-        // Trigger the time change handler
-        this.handleEditTimeChange('duration');
+        // Mark as duration edited and trigger the time change handler
+        this.lastEditedField = 'duration';
+        this.handleEditTimeChange();
       }
     } catch (error) {
       console.error('Error handling duration keyboard:', error);
     }
   }
 
-  handleEditTimeChange(changedField) {
+  handleEditTimeChange() {
     try {
       const editStartTime = document.getElementById('editStartTime');
       const editEndTime = document.getElementById('editEndTime');
@@ -285,23 +299,45 @@ class TimeTracker {
       
       if (!editStartTime || !editEndTime || !editDuration) return;
       
-      if (changedField === 'start' || changedField === 'duration') {
+      const startTimeStr = editStartTime.value;
+      const endTimeStr = editEndTime.value;
+      const durationStr = editDuration.value;
+      
+      // Parse values
+      const startTime = startTimeStr ? new Date(startTimeStr) : null;
+      const endTime = endTimeStr ? new Date(endTimeStr) : null;
+      const duration = this.parseDurationInput(durationStr);
+      
+      // Calculate based on which field was last edited
+      if (this.lastEditedField === 'start' || this.lastEditedField === 'duration') {
         // Start time or duration changed - calculate end time
-        const startTimeStr = editStartTime.value;
-        const durationStr = editDuration.value;
-        
-        if (startTimeStr && durationStr) {
-          const startTime = new Date(startTimeStr);
-          const duration = this.parseDurationInput(durationStr);
-          
-          if (!isNaN(startTime.getTime()) && duration !== null) {
-            const endTime = new Date(startTime.getTime() + duration);
-            editEndTime.value = this.formatDateTimeLocal(endTime);
-          } else {
-            editEndTime.value = '';
-          }
-        } else {
+        if (startTime && !isNaN(startTime.getTime()) && duration !== null && duration >= 0) {
+          const calculatedEndTime = new Date(startTime.getTime() + duration);
+          editEndTime.value = this.formatDateTimeLocal(calculatedEndTime);
+        } else if (!startTimeStr || !durationStr) {
           editEndTime.value = '';
+        }
+      } else if (this.lastEditedField === 'end') {
+        // End time changed - calculate duration if we have start time
+        if (startTime && endTime && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+          const calculatedDuration = endTime.getTime() - startTime.getTime();
+          if (calculatedDuration >= 0) {
+            // Enforce 23:59:59 maximum (86340000 ms)
+            const maxDuration = 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000;
+            const finalDuration = Math.min(calculatedDuration, maxDuration);
+            editDuration.value = this.formatDurationForInput(finalDuration);
+            
+            // If we capped the duration, update the end time to reflect the cap
+            if (finalDuration < calculatedDuration) {
+              const cappedEndTime = new Date(startTime.getTime() + finalDuration);
+              editEndTime.value = this.formatDateTimeLocal(cappedEndTime);
+            }
+          } else {
+            // Negative duration - clear duration field
+            editDuration.value = '00:00:00';
+          }
+        } else if (!startTimeStr || !endTimeStr) {
+          editDuration.value = '00:00:00';
         }
       }
     } catch (error) {
@@ -502,6 +538,7 @@ class TimeTracker {
   openEditModal(task, taskType) {
     try {
       this.editingTask = { ...task, taskType };
+      this.lastEditedField = null; // Reset last edited field
       
       // Populate form fields
       document.getElementById('editTaskTitle').value = task.title || '';
@@ -539,8 +576,11 @@ class TimeTracker {
       // Set duration
       document.getElementById('editDuration').value = this.formatDurationForInput(currentDuration);
       
-      // Calculate and set end time
-      this.handleEditTimeChange('duration');
+      // Calculate and set end time based on start time + duration
+      if (startTime && currentDuration > 0) {
+        const endTime = new Date(new Date(startTime).getTime() + currentDuration);
+        document.getElementById('editEndTime').value = this.formatDateTimeLocal(endTime);
+      }
       
       // Show modal
       document.getElementById('editModal').style.display = 'flex';
@@ -581,6 +621,7 @@ class TimeTracker {
     try {
       document.getElementById('editModal').style.display = 'none';
       this.editingTask = null;
+      this.lastEditedField = null;
     } catch (error) {
       console.error('Error closing edit modal:', error);
     }
@@ -596,6 +637,7 @@ class TimeTracker {
       const project = document.getElementById('editProjectSelect').value || this.state.projects[0];
       const billable = document.getElementById('editBillable').checked;
       const startTimeStr = document.getElementById('editStartTime').value;
+      const endTimeStr = document.getElementById('editEndTime').value;
       const durationStr = document.getElementById('editDuration').value;
       
       if (!title) {
@@ -609,6 +651,16 @@ class TimeTracker {
         startTime = new Date(startTimeStr);
         if (isNaN(startTime.getTime())) {
           alert('Invalid start time');
+          return;
+        }
+      }
+      
+      // Parse end time
+      let endTime = null;
+      if (endTimeStr) {
+        endTime = new Date(endTimeStr);
+        if (isNaN(endTime.getTime())) {
+          alert('Invalid end time');
           return;
         }
       }
@@ -630,21 +682,15 @@ class TimeTracker {
         }
       }
       
-      // Calculate end time
-      let endTime = null;
-      if (startTime && duration > 0) {
-        endTime = new Date(startTime.getTime() + duration);
-      }
-      
-      // Update task object
-      const updatedTask = {
+      // For current tasks, we need to handle the timing differently
+      let taskData = {
         ...this.editingTask,
         title,
         customer,
         project,
         billable,
         startTime: startTime || this.editingTask.startTime,
-        endTime: endTime || this.editingTask.endTime,
+        endTime: endTime,
         duration
       };
       
@@ -652,7 +698,7 @@ class TimeTracker {
       const response = await this.sendMessageWithRetry({
         action: 'updateTask',
         data: {
-          task: updatedTask,
+          task: taskData,
           taskType: this.editingTask.taskType
         }
       });

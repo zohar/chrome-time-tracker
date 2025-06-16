@@ -463,13 +463,6 @@ input[type="datetime-local"] {
   font-size: 12px !important;
 }
 
-/* Read-only field styling */
-input[readonly] {
-  background-color: #f9fafb;
-  color: #6b7280;
-  cursor: not-allowed;
-}
-
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

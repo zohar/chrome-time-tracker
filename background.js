@@ -375,16 +375,24 @@ class BackgroundService {
       console.log('Background: Updating task:', { task, taskType });
       
       if (taskType === 'current' && this.currentTask && this.currentTask.id === task.id) {
-        // Update current task (preserve timing for active tasks, but allow manual duration override)
+        // Update current task - for active tasks, we need to handle timing carefully
+        const wasRunning = this.currentTask.startTime;
+        
         this.currentTask = {
           ...this.currentTask,
           title: task.title,
           customer: task.customer,
           project: task.project,
           billable: task.billable,
-          // Allow duration override if provided
-          duration: task.duration !== undefined ? Number(task.duration) : this.currentTask.duration
+          startTime: task.startTime ? new Date(task.startTime) : this.currentTask.startTime,
+          duration: Number(task.duration) || 0
         };
+        
+        // If the task was running and we changed the start time, we need to reset the start time to now
+        // to continue tracking from the current moment with the new accumulated duration
+        if (wasRunning && task.startTime) {
+          this.currentTask.startTime = new Date();
+        }
         
         console.log('Background: Updated current task:', this.currentTask);
         
