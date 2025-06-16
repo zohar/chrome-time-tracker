@@ -182,11 +182,8 @@ class TimeTracker {
       const editDuration = document.getElementById('editDuration');
       
       if (editStartTime && editEndTime && editDuration) {
-        // Listen for changes in date/time fields
-        editStartTime.addEventListener('input', () => this.handleEditTimeChange('dates'));
-        editEndTime.addEventListener('input', () => this.handleEditTimeChange('dates'));
-        
-        // Listen for changes in duration field
+        // Listen for changes in start time and duration fields
+        editStartTime.addEventListener('input', () => this.handleEditTimeChange('start'));
         editDuration.addEventListener('input', () => this.handleEditTimeChange('duration'));
         
         // Add keyboard navigation for duration field
@@ -220,14 +217,14 @@ class TimeTracker {
         
         // Determine which part to modify based on cursor position
         if (cursorPos <= 2) {
-          // Hours
-          hours = Math.max(0, Math.min(99, hours + increment));
+          // Hours (max 23)
+          hours = Math.max(0, Math.min(23, hours + increment));
         } else if (cursorPos <= 5) {
           // Minutes
           minutes += increment;
           if (minutes >= 60) {
             minutes = 0;
-            hours = Math.min(99, hours + 1);
+            hours = Math.min(23, hours + 1);
           } else if (minutes < 0) {
             minutes = 59;
             hours = Math.max(0, hours - 1);
@@ -240,7 +237,7 @@ class TimeTracker {
             minutes += 1;
             if (minutes >= 60) {
               minutes = 0;
-              hours = Math.min(99, hours + 1);
+              hours = Math.min(23, hours + 1);
             }
           } else if (seconds < 0) {
             seconds = 59;
@@ -248,6 +245,17 @@ class TimeTracker {
             if (minutes < 0) {
               minutes = 59;
               hours = Math.max(0, hours - 1);
+            }
+          }
+        }
+        
+        // Enforce 23:59:59 maximum
+        if (hours >= 23) {
+          hours = 23;
+          if (minutes >= 59) {
+            minutes = 59;
+            if (seconds >= 59) {
+              seconds = 59;
             }
           }
         }
@@ -277,27 +285,8 @@ class TimeTracker {
       
       if (!editStartTime || !editEndTime || !editDuration) return;
       
-      if (changedField === 'dates') {
-        // Date/time fields changed - update duration
-        const startTimeStr = editStartTime.value;
-        const endTimeStr = editEndTime.value;
-        
-        if (startTimeStr && endTimeStr) {
-          const startTime = new Date(startTimeStr);
-          const endTime = new Date(endTimeStr);
-          
-          if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime()) && endTime > startTime) {
-            const duration = endTime.getTime() - startTime.getTime();
-            editDuration.value = this.formatDurationForInput(duration);
-          } else {
-            editDuration.value = '00:00:00';
-          }
-        } else {
-          editDuration.value = '00:00:00';
-        }
-        
-      } else if (changedField === 'duration') {
-        // Duration field changed - update end time
+      if (changedField === 'start' || changedField === 'duration') {
+        // Start time or duration changed - calculate end time
         const startTimeStr = editStartTime.value;
         const durationStr = editDuration.value;
         
@@ -528,7 +517,6 @@ class TimeTracker {
       // For current tasks, calculate current duration including active time
       let currentDuration = Number(task.duration) || 0;
       let startTime = task.startTime;
-      let endTime = task.endTime;
       
       if (taskType === 'current' && task.startTime) {
         // Add current session time to stored duration
@@ -538,12 +526,9 @@ class TimeTracker {
           const sessionDuration = now - sessionStart;
           currentDuration += sessionDuration;
         }
-        
-        // For current tasks, set end time to now for editing purposes
-        endTime = new Date();
       }
       
-      // Set datetime fields
+      // Set start time
       if (startTime) {
         const startTimeObj = new Date(startTime);
         if (!isNaN(startTimeObj.getTime())) {
@@ -551,15 +536,11 @@ class TimeTracker {
         }
       }
       
-      if (endTime) {
-        const endTimeObj = new Date(endTime);
-        if (!isNaN(endTimeObj.getTime())) {
-          document.getElementById('editEndTime').value = this.formatDateTimeLocal(endTimeObj);
-        }
-      }
-      
       // Set duration
       document.getElementById('editDuration').value = this.formatDurationForInput(currentDuration);
+      
+      // Calculate and set end time
+      this.handleEditTimeChange('duration');
       
       // Show modal
       document.getElementById('editModal').style.display = 'flex';
@@ -615,7 +596,6 @@ class TimeTracker {
       const project = document.getElementById('editProjectSelect').value || this.state.projects[0];
       const billable = document.getElementById('editBillable').checked;
       const startTimeStr = document.getElementById('editStartTime').value;
-      const endTimeStr = document.getElementById('editEndTime').value;
       const durationStr = document.getElementById('editDuration').value;
       
       if (!title) {
@@ -623,11 +603,8 @@ class TimeTracker {
         return;
       }
       
-      // Parse dates
+      // Parse start time
       let startTime = null;
-      let endTime = null;
-      let duration = 0;
-      
       if (startTimeStr) {
         startTime = new Date(startTimeStr);
         if (isNaN(startTime.getTime())) {
@@ -636,27 +613,27 @@ class TimeTracker {
         }
       }
       
-      if (endTimeStr) {
-        endTime = new Date(endTimeStr);
-        if (isNaN(endTime.getTime())) {
-          alert('Invalid end time');
-          return;
-        }
-      }
-      
-      // Parse duration - this should be the most up-to-date value due to real-time sync
+      // Parse duration
+      let duration = 0;
       if (durationStr) {
         duration = this.parseDurationInput(durationStr);
         if (duration === null) {
           alert('Invalid duration format. Use HH:MM:SS (e.g., 01:30:00)');
           return;
         }
+        
+        // Enforce 23:59:59 maximum (86340000 ms)
+        const maxDuration = 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000;
+        if (duration > maxDuration) {
+          alert('Maximum duration is 23:59:59');
+          return;
+        }
       }
       
-      // Validate dates
-      if (startTime && endTime && startTime >= endTime) {
-        alert('End time must be after start time');
-        return;
+      // Calculate end time
+      let endTime = null;
+      if (startTime && duration > 0) {
+        endTime = new Date(startTime.getTime() + duration);
       }
       
       // Update task object
@@ -762,7 +739,8 @@ class TimeTracker {
     const minutes = parseInt(match[2], 10);
     const seconds = parseInt(match[3], 10);
     
-    if (minutes >= 60 || seconds >= 60) return null;
+    // Validate ranges
+    if (hours > 23 || minutes >= 60 || seconds >= 60) return null;
     
     return (hours * 3600 + minutes * 60 + seconds) * 1000;
   }
