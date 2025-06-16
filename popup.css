@@ -324,7 +324,6 @@ body {
   justify-content: space-between;
   padding: 8px 0;
   border-bottom: 1px solid #f3f4f6;
-  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -342,6 +341,7 @@ body {
 .task-item-info {
   flex: 1;
   min-width: 0;
+  cursor: pointer;
 }
 
 .task-item-title {
@@ -362,11 +362,42 @@ body {
   gap: 4px;
 }
 
+.task-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .task-item-duration {
   font-size: 12px;
   font-weight: 500;
   color: #374151;
   font-family: 'SF Mono', Monaco, monospace;
+}
+
+.task-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.task-item:hover .task-delete-btn {
+  opacity: 1;
+}
+
+.task-delete-btn:hover {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .empty-state {

@@ -783,6 +783,36 @@ class TimeTracker {
     }
   }
 
+  async deleteTaskDirectly(taskId) {
+    try {
+      if (!confirm('Are you sure you want to delete this task? This cannot be undone.')) {
+        return;
+      }
+      
+      const response = await this.sendMessageWithRetry({
+        action: 'deleteTask',
+        data: {
+          taskId: taskId,
+          taskType: 'completed'
+        }
+      });
+      
+      if (response && response.success) {
+        console.log('Popup: Task deleted successfully');
+        // Force UI update to reflect changes immediately
+        await this.loadInitialState();
+        this.updateUI();
+      } else {
+        console.error('Popup: Failed to delete task:', response);
+        alert('Failed to delete task. Please try again.');
+      }
+      
+    } catch (error) {
+      console.error('Error deleting task directly:', error);
+      alert('Failed to delete task. Please try again.');
+    }
+  }
+
   formatDateTimeLocal(date) {
     const d = new Date(date);
     const year = d.getFullYear();
@@ -1028,15 +1058,30 @@ class TimeTracker {
               ${task.billable ? '<span class="billable-indicator">💰</span>' : ''}
             </div>
           </div>
-          <div class="task-item-duration">${this.formatDuration(Number(task.duration) || 0)}</div>
+          <div class="task-item-actions">
+            <div class="task-item-duration">${this.formatDuration(Number(task.duration) || 0)}</div>
+            <button class="task-delete-btn" data-task-id="${task.id}" title="Delete task">🗑️</button>
+          </div>
         </div>
       `).join('');
       
       // Add click handlers for editing tasks
       taskList.querySelectorAll('.task-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const taskId = parseInt(item.dataset.taskId);
-          this.editTask(taskId);
+        const taskInfo = item.querySelector('.task-item-info');
+        if (taskInfo) {
+          taskInfo.addEventListener('click', () => {
+            const taskId = parseInt(item.dataset.taskId);
+            this.editTask(taskId);
+          });
+        }
+      });
+      
+      // Add click handlers for delete buttons
+      taskList.querySelectorAll('.task-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation(); // Prevent triggering the edit handler
+          const taskId = parseInt(btn.dataset.taskId);
+          this.deleteTaskDirectly(taskId);
         });
       });
     } catch (error) {
