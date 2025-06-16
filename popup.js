@@ -189,10 +189,83 @@ class TimeTracker {
         // Listen for changes in duration field
         editDuration.addEventListener('input', () => this.handleEditTimeChange('duration'));
         
+        // Add keyboard navigation for duration field
+        editDuration.addEventListener('keydown', (e) => this.handleDurationKeyboard(e));
+        
         console.log('Edit modal time listeners set up successfully');
       }
     } catch (error) {
       console.error('Error setting up edit modal time listeners:', error);
+    }
+  }
+
+  handleDurationKeyboard(e) {
+    try {
+      const input = e.target;
+      const value = input.value;
+      const cursorPos = input.selectionStart;
+      
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        
+        // Parse current duration
+        const match = value.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+        if (!match) return;
+        
+        let hours = parseInt(match[1], 10);
+        let minutes = parseInt(match[2], 10);
+        let seconds = parseInt(match[3], 10);
+        
+        const increment = e.key === 'ArrowUp' ? 1 : -1;
+        
+        // Determine which part to modify based on cursor position
+        if (cursorPos <= 2) {
+          // Hours
+          hours = Math.max(0, Math.min(99, hours + increment));
+        } else if (cursorPos <= 5) {
+          // Minutes
+          minutes += increment;
+          if (minutes >= 60) {
+            minutes = 0;
+            hours = Math.min(99, hours + 1);
+          } else if (minutes < 0) {
+            minutes = 59;
+            hours = Math.max(0, hours - 1);
+          }
+        } else {
+          // Seconds
+          seconds += increment;
+          if (seconds >= 60) {
+            seconds = 0;
+            minutes += 1;
+            if (minutes >= 60) {
+              minutes = 0;
+              hours = Math.min(99, hours + 1);
+            }
+          } else if (seconds < 0) {
+            seconds = 59;
+            minutes -= 1;
+            if (minutes < 0) {
+              minutes = 59;
+              hours = Math.max(0, hours - 1);
+            }
+          }
+        }
+        
+        // Update the input value
+        const newValue = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        input.value = newValue;
+        
+        // Restore cursor position
+        setTimeout(() => {
+          input.setSelectionRange(cursorPos, cursorPos);
+        }, 0);
+        
+        // Trigger the time change handler
+        this.handleEditTimeChange('duration');
+      }
+    } catch (error) {
+      console.error('Error handling duration keyboard:', error);
     }
   }
 
@@ -452,24 +525,41 @@ class TimeTracker {
       document.getElementById('editCustomerSelect').value = task.customer || '';
       document.getElementById('editProjectSelect').value = task.project || '';
       
+      // For current tasks, calculate current duration including active time
+      let currentDuration = Number(task.duration) || 0;
+      let startTime = task.startTime;
+      let endTime = task.endTime;
+      
+      if (taskType === 'current' && task.startTime) {
+        // Add current session time to stored duration
+        const now = Date.now();
+        const sessionStart = new Date(task.startTime).getTime();
+        if (!isNaN(sessionStart)) {
+          const sessionDuration = now - sessionStart;
+          currentDuration += sessionDuration;
+        }
+        
+        // For current tasks, set end time to now for editing purposes
+        endTime = new Date();
+      }
+      
       // Set datetime fields
-      if (task.startTime) {
-        const startTime = new Date(task.startTime);
-        if (!isNaN(startTime.getTime())) {
-          document.getElementById('editStartTime').value = this.formatDateTimeLocal(startTime);
+      if (startTime) {
+        const startTimeObj = new Date(startTime);
+        if (!isNaN(startTimeObj.getTime())) {
+          document.getElementById('editStartTime').value = this.formatDateTimeLocal(startTimeObj);
         }
       }
       
-      if (task.endTime) {
-        const endTime = new Date(task.endTime);
-        if (!isNaN(endTime.getTime())) {
-          document.getElementById('editEndTime').value = this.formatDateTimeLocal(endTime);
+      if (endTime) {
+        const endTimeObj = new Date(endTime);
+        if (!isNaN(endTimeObj.getTime())) {
+          document.getElementById('editEndTime').value = this.formatDateTimeLocal(endTimeObj);
         }
       }
       
       // Set duration
-      const duration = Number(task.duration) || 0;
-      document.getElementById('editDuration').value = this.formatDurationForInput(duration);
+      document.getElementById('editDuration').value = this.formatDurationForInput(currentDuration);
       
       // Show modal
       document.getElementById('editModal').style.display = 'flex';
