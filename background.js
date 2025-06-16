@@ -17,32 +17,6 @@ class BackgroundService {
   }
 
   updateIcon(state) {
-    const iconPaths = {
-      idle: {
-        '16': 'icons/icon-16-gray.png',
-        '32': 'icons/icon-32-gray.png',
-        '48': 'icons/icon-48-gray.png',
-        '128': 'icons/icon-128-gray.png'
-      },
-      active: {
-        '16': 'icons/icon-16-green.png',
-        '32': 'icons/icon-32-green.png',
-        '48': 'icons/icon-48-green.png',
-        '128': 'icons/icon-128-green.png'
-      },
-      paused: {
-        '16': 'icons/icon-16-orange.png',
-        '32': 'icons/icon-32-orange.png',
-        '48': 'icons/icon-48-orange.png',
-        '128': 'icons/icon-128-orange.png'
-      }
-    };
-
-    // For now, we'll use basic icons - in production you'd have different colored versions
-    chrome.action.setIcon({
-      path: iconPaths.idle // We'll create proper colored icons later
-    });
-
     // Update badge text to show state
     const badgeText = {
       idle: '',

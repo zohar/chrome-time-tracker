@@ -189,10 +189,6 @@ class TimeTracker {
     await this.saveData();
     this.updateUI();
     this.updateIcon('idle');
-    
-    if (this.settings.webhookEnabled && this.settings.webhookUrl) {
-      this.sendWebhook(this.tasks[0]);
-    }
   }
 
   updateUI() {
