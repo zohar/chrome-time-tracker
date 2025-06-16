@@ -2,6 +2,7 @@ class TimeTracker {
   constructor() {
     // UI-only state - no persistent data stored here
     this.currentPeriod = 'today';
+    this.editingTask = null;
     this.state = {
       currentTask: null,
       pausedTask: null,
@@ -11,6 +12,7 @@ class TimeTracker {
       settings: {
         defaultCustomer: '',
         defaultProject: '',
+        defaultBillable: false,
         webhookUrl: '',
         webhookEnabled: false
       }
@@ -116,6 +118,13 @@ class TimeTracker {
       if (resumeBtn) resumeBtn.addEventListener('click', () => this.resumeTask());
       if (stopPausedBtn) stopPausedBtn.addEventListener('click', () => this.stopPausedTask());
       
+      // Edit buttons
+      const editCurrentBtn = document.getElementById('editCurrentBtn');
+      const editPausedBtn = document.getElementById('editPausedBtn');
+      
+      if (editCurrentBtn) editCurrentBtn.addEventListener('click', () => this.editCurrentTask());
+      if (editPausedBtn) editPausedBtn.addEventListener('click', () => this.editPausedTask());
+      
       // Form inputs
       const taskTitle = document.getElementById('taskTitle');
       const billableToggle = document.getElementById('billableToggle');
@@ -135,6 +144,27 @@ class TimeTracker {
       // Export
       const exportBtn = document.getElementById('exportBtn');
       if (exportBtn) exportBtn.addEventListener('click', () => this.exportTasks());
+      
+      // Modal controls
+      const closeModal = document.getElementById('closeModal');
+      const cancelEditBtn = document.getElementById('cancelEditBtn');
+      const saveTaskBtn = document.getElementById('saveTaskBtn');
+      const deleteTaskBtn = document.getElementById('deleteTaskBtn');
+      
+      if (closeModal) closeModal.addEventListener('click', () => this.closeEditModal());
+      if (cancelEditBtn) cancelEditBtn.addEventListener('click', () => this.closeEditModal());
+      if (saveTaskBtn) saveTaskBtn.addEventListener('click', () => this.saveTaskEdit());
+      if (deleteTaskBtn) deleteTaskBtn.addEventListener('click', () => this.deleteTask());
+      
+      // Close modal on backdrop click
+      const modal = document.getElementById('editModal');
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            this.closeEditModal();
+          }
+        });
+      }
       
       // Keyboard shortcuts
       document.addEventListener('keydown', (e) => this.handleKeyboard(e));
@@ -217,7 +247,14 @@ class TimeTracker {
       const title = titleInput.value.trim();
       const customer = customerSelect ? customerSelect.value || this.state.customers[0] : this.state.customers[0];
       const project = projectSelect ? projectSelect.value || this.state.projects[0] : this.state.projects[0];
-      const billable = billableToggle ? billableToggle.classList.contains('active') : false;
+      
+      // Use billable toggle state or default setting
+      let billable = false;
+      if (billableToggle) {
+        billable = billableToggle.classList.contains('active');
+      } else {
+        billable = this.state.settings.defaultBillable || false;
+      }
       
       if (!title) return;
       
@@ -309,6 +346,261 @@ class TimeTracker {
     }
   }
 
+  editCurrentTask() {
+    if (this.state.currentTask) {
+      this.openEditModal(this.state.currentTask, 'current');
+    }
+  }
+
+  editPausedTask() {
+    if (this.state.pausedTask) {
+      this.openEditModal(this.state.pausedTask, 'paused');
+    }
+  }
+
+  editTask(taskId) {
+    const task = this.state.tasks.find(t => t.id === taskId);
+    if (task) {
+      this.openEditModal(task, 'completed');
+    }
+  }
+
+  openEditModal(task, taskType) {
+    try {
+      this.editingTask = { ...task, taskType };
+      
+      // Populate form fields
+      document.getElementById('editTaskTitle').value = task.title || '';
+      document.getElementById('editBillable').checked = task.billable || false;
+      
+      // Update dropdowns
+      this.updateEditDropdowns();
+      
+      // Set selected values
+      document.getElementById('editCustomerSelect').value = task.customer || '';
+      document.getElementById('editProjectSelect').value = task.project || '';
+      
+      // Set datetime fields
+      if (task.startTime) {
+        const startTime = new Date(task.startTime);
+        if (!isNaN(startTime.getTime())) {
+          document.getElementById('editStartTime').value = this.formatDateTimeLocal(startTime);
+        }
+      }
+      
+      if (task.endTime) {
+        const endTime = new Date(task.endTime);
+        if (!isNaN(endTime.getTime())) {
+          document.getElementById('editEndTime').value = this.formatDateTimeLocal(endTime);
+        }
+      }
+      
+      // Set duration
+      const duration = Number(task.duration) || 0;
+      document.getElementById('editDuration').value = this.formatDurationForInput(duration);
+      
+      // Show modal
+      document.getElementById('editModal').style.display = 'flex';
+      
+      // Focus on title field
+      setTimeout(() => {
+        document.getElementById('editTaskTitle').focus();
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error opening edit modal:', error);
+    }
+  }
+
+  updateEditDropdowns() {
+    try {
+      const customerSelect = document.getElementById('editCustomerSelect');
+      const projectSelect = document.getElementById('editProjectSelect');
+      
+      if (customerSelect) {
+        customerSelect.innerHTML = '<option value="">Select Customer</option>' +
+          this.state.customers.map(c => `<option value="${c}">${c}</option>`).join('');
+      }
+      
+      if (projectSelect) {
+        projectSelect.innerHTML = '<option value="">Select Project</option>' +
+          this.state.projects.map(p => `<option value="${p}">${p}</option>`).join('');
+      }
+    } catch (error) {
+      console.error('Error updating edit dropdowns:', error);
+    }
+  }
+
+  closeEditModal() {
+    try {
+      document.getElementById('editModal').style.display = 'none';
+      this.editingTask = null;
+    } catch (error) {
+      console.error('Error closing edit modal:', error);
+    }
+  }
+
+  async saveTaskEdit() {
+    try {
+      if (!this.editingTask) return;
+      
+      // Get form values
+      const title = document.getElementById('editTaskTitle').value.trim();
+      const customer = document.getElementById('editCustomerSelect').value || this.state.customers[0];
+      const project = document.getElementById('editProjectSelect').value || this.state.projects[0];
+      const billable = document.getElementById('editBillable').checked;
+      const startTimeStr = document.getElementById('editStartTime').value;
+      const endTimeStr = document.getElementById('editEndTime').value;
+      const durationStr = document.getElementById('editDuration').value;
+      
+      if (!title) {
+        alert('Task title is required');
+        return;
+      }
+      
+      // Parse dates
+      let startTime = null;
+      let endTime = null;
+      let duration = 0;
+      
+      if (startTimeStr) {
+        startTime = new Date(startTimeStr);
+        if (isNaN(startTime.getTime())) {
+          alert('Invalid start time');
+          return;
+        }
+      }
+      
+      if (endTimeStr) {
+        endTime = new Date(endTimeStr);
+        if (isNaN(endTime.getTime())) {
+          alert('Invalid end time');
+          return;
+        }
+      }
+      
+      // Parse duration
+      if (durationStr) {
+        duration = this.parseDurationInput(durationStr);
+        if (duration === null) {
+          alert('Invalid duration format. Use HH:MM:SS (e.g., 01:30:00)');
+          return;
+        }
+      }
+      
+      // Validate dates
+      if (startTime && endTime && startTime >= endTime) {
+        alert('End time must be after start time');
+        return;
+      }
+      
+      // Calculate duration from dates if not provided
+      if (startTime && endTime && !durationStr) {
+        duration = endTime.getTime() - startTime.getTime();
+      }
+      
+      // Update task object
+      const updatedTask = {
+        ...this.editingTask,
+        title,
+        customer,
+        project,
+        billable,
+        startTime: startTime || this.editingTask.startTime,
+        endTime: endTime || this.editingTask.endTime,
+        duration
+      };
+      
+      // Send update to background
+      const response = await this.sendMessageWithRetry({
+        action: 'updateTask',
+        data: {
+          task: updatedTask,
+          taskType: this.editingTask.taskType
+        }
+      });
+      
+      if (response && response.success) {
+        console.log('Popup: Task updated successfully');
+        this.closeEditModal();
+      } else {
+        console.error('Popup: Failed to update task:', response);
+        alert('Failed to update task. Please try again.');
+      }
+      
+    } catch (error) {
+      console.error('Error saving task edit:', error);
+      alert('Failed to save changes. Please try again.');
+    }
+  }
+
+  async deleteTask() {
+    try {
+      if (!this.editingTask) return;
+      
+      if (!confirm('Are you sure you want to delete this task? This cannot be undone.')) {
+        return;
+      }
+      
+      const response = await this.sendMessageWithRetry({
+        action: 'deleteTask',
+        data: {
+          taskId: this.editingTask.id,
+          taskType: this.editingTask.taskType
+        }
+      });
+      
+      if (response && response.success) {
+        console.log('Popup: Task deleted successfully');
+        this.closeEditModal();
+      } else {
+        console.error('Popup: Failed to delete task:', response);
+        alert('Failed to delete task. Please try again.');
+      }
+      
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      alert('Failed to delete task. Please try again.');
+    }
+  }
+
+  formatDateTimeLocal(date) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  formatDurationForInput(ms) {
+    if (!ms || isNaN(ms) || ms < 0) {
+      return '00:00:00';
+    }
+    
+    const seconds = Math.floor(ms / 1000);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  parseDurationInput(durationStr) {
+    const match = durationStr.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+    if (!match) return null;
+    
+    const hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const seconds = parseInt(match[3], 10);
+    
+    if (minutes >= 60 || seconds >= 60) return null;
+    
+    return (hours * 3600 + minutes * 60 + seconds) * 1000;
+  }
+
   updateUI() {
     try {
       console.log('Updating UI...');
@@ -316,9 +608,21 @@ class TimeTracker {
       this.updateCustomerProjectDropdowns();
       this.updateSummary();
       this.updateTaskList();
+      this.applyDefaultBillable();
       console.log('UI updated successfully');
     } catch (error) {
       console.error('Error updating UI:', error);
+    }
+  }
+
+  applyDefaultBillable() {
+    try {
+      const billableToggle = document.getElementById('billableToggle');
+      if (billableToggle && this.state.settings.defaultBillable) {
+        billableToggle.classList.add('active');
+      }
+    } catch (error) {
+      console.error('Error applying default billable:', error);
     }
   }
 
@@ -604,11 +908,6 @@ class TimeTracker {
     }
   }
 
-  editTask(taskId) {
-    // This would open a task edit dialog
-    console.log('Edit task:', taskId);
-  }
-
   async exportTasks() {
     try {
       const response = await this.sendMessageWithRetry({ action: 'exportTasks' });
@@ -640,6 +939,14 @@ class TimeTracker {
 
   handleKeyboard(e) {
     try {
+      // Don't handle shortcuts when modal is open
+      if (document.getElementById('editModal').style.display === 'flex') {
+        if (e.key === 'Escape') {
+          this.closeEditModal();
+        }
+        return;
+      }
+      
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
           case 'j':

@@ -3,6 +3,7 @@ class SettingsManager {
     this.settings = {
       defaultCustomer: '',
       defaultProject: '',
+      defaultBillable: false,
       webhookUrl: '',
       webhookEnabled: false
     };
@@ -73,6 +74,7 @@ class SettingsManager {
     document.getElementById('webhookUrl').value = this.settings.webhookUrl;
     document.getElementById('webhookUrl').disabled = !this.settings.webhookEnabled;
     document.getElementById('testWebhook').disabled = !this.settings.webhookEnabled;
+    document.getElementById('defaultBillable').checked = this.settings.defaultBillable;
     
     // Update customers and projects text areas
     document.getElementById('customersInput').value = this.customers.join('\n');
@@ -100,6 +102,7 @@ class SettingsManager {
       this.settings.webhookUrl = document.getElementById('webhookUrl').value.trim();
       this.settings.defaultCustomer = document.getElementById('defaultCustomer').value;
       this.settings.defaultProject = document.getElementById('defaultProject').value;
+      this.settings.defaultBillable = document.getElementById('defaultBillable').checked;
       
       // Update customers and projects from text areas
       const customersText = document.getElementById('customersInput').value.trim();
@@ -123,6 +126,7 @@ class SettingsManager {
       this.settings = {
         defaultCustomer: '',
         defaultProject: '',
+        defaultBillable: false,
         webhookUrl: '',
         webhookEnabled: false
       };
@@ -323,6 +327,7 @@ class SettingsManager {
           this.settings = {
             defaultCustomer: '',
             defaultProject: '',
+            defaultBillable: false,
             webhookUrl: '',
             webhookEnabled: false
           };

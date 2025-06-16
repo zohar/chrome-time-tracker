@@ -9,6 +9,7 @@ class BackgroundService {
     this.settings = {
       defaultCustomer: '',
       defaultProject: '',
+      defaultBillable: false,
       webhookUrl: '',
       webhookEnabled: false
     };
@@ -170,6 +171,12 @@ class BackgroundService {
             case 'stopPausedTask':
               return await this.handleStopPausedTask();
               
+            case 'updateTask':
+              return await this.handleUpdateTask(message.data);
+              
+            case 'deleteTask':
+              return await this.handleDeleteTask(message.data);
+              
             case 'exportTasks':
               return await this.handleExportTasks();
               
@@ -190,7 +197,7 @@ class BackgroundService {
       };
 
       // For async operations, handle them and send response
-      if (['getInitialState', 'startTask', 'pauseTask', 'stopTask', 'resumeTask', 'stopPausedTask', 'exportTasks', 'updateSettings'].includes(message.action)) {
+      if (['getInitialState', 'startTask', 'pauseTask', 'stopTask', 'resumeTask', 'stopPausedTask', 'updateTask', 'deleteTask', 'exportTasks', 'updateSettings'].includes(message.action)) {
         handleAsync().then(response => {
           console.log('Background: Sending response:', response);
           sendResponse(response);
@@ -358,6 +365,77 @@ class BackgroundService {
       return { success: true, data: completedTask };
     } catch (error) {
       console.error('Background: Error stopping paused task:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleUpdateTask(data) {
+    try {
+      const { task, taskType } = data;
+      
+      if (taskType === 'current' && this.currentTask && this.currentTask.id === task.id) {
+        // Update current task (but preserve timing for active tasks)
+        this.currentTask = {
+          ...this.currentTask,
+          title: task.title,
+          customer: task.customer,
+          project: task.project,
+          billable: task.billable
+          // Don't update startTime or duration for active tasks
+        };
+        
+      } else if (taskType === 'paused' && this.pausedTask && this.pausedTask.id === task.id) {
+        // Update paused task
+        this.pausedTask = {
+          ...task,
+          startTime: new Date(task.startTime),
+          endTime: task.endTime ? new Date(task.endTime) : null
+        };
+        
+      } else if (taskType === 'completed') {
+        // Update completed task
+        const taskIndex = this.tasks.findIndex(t => t.id === task.id);
+        if (taskIndex !== -1) {
+          this.tasks[taskIndex] = {
+            ...task,
+            startTime: new Date(task.startTime),
+            endTime: task.endTime ? new Date(task.endTime) : null
+          };
+        }
+      }
+      
+      await this.saveData();
+      this.notifyPopupStateChange();
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Background: Error updating task:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleDeleteTask(data) {
+    try {
+      const { taskId, taskType } = data;
+      
+      if (taskType === 'current' && this.currentTask && this.currentTask.id === taskId) {
+        this.currentTask = null;
+        this.updateIcon('idle');
+        
+      } else if (taskType === 'paused' && this.pausedTask && this.pausedTask.id === taskId) {
+        this.pausedTask = null;
+        this.updateIcon('idle');
+        
+      } else if (taskType === 'completed') {
+        this.tasks = this.tasks.filter(t => t.id !== taskId);
+      }
+      
+      await this.saveData();
+      this.notifyPopupStateChange();
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Background: Error deleting task:', error);
       return { success: false, error: error.message };
     }
   }
