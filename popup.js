@@ -18,69 +18,96 @@ class TimeTracker {
   }
 
   async init() {
-    await this.loadData();
-    this.setupEventListeners();
-    this.updateUI();
-    this.startTimer();
+    try {
+      console.log('Initializing TimeTracker...');
+      await this.loadData();
+      this.setupEventListeners();
+      this.updateUI();
+      this.startTimer();
+      console.log('TimeTracker initialized successfully');
+    } catch (error) {
+      console.error('Error initializing TimeTracker:', error);
+    }
   }
 
   async loadData() {
-    const data = await chrome.storage.local.get([
-      'currentTask',
-      'pausedTask', 
-      'tasks',
-      'customers',
-      'projects',
-      'settings'
-    ]);
-    
-    this.currentTask = data.currentTask || null;
-    this.pausedTask = data.pausedTask || null;
-    this.tasks = data.tasks || [];
-    this.customers = data.customers || ['Default Client'];
-    this.projects = data.projects || ['General'];
-    this.settings = { ...this.settings, ...data.settings };
+    try {
+      console.log('Loading data from storage...');
+      const data = await chrome.storage.local.get([
+        'currentTask',
+        'pausedTask', 
+        'tasks',
+        'customers',
+        'projects',
+        'settings'
+      ]);
+      
+      console.log('Raw data from storage:', data);
+      
+      this.currentTask = data.currentTask || null;
+      this.pausedTask = data.pausedTask || null;
+      this.tasks = data.tasks || [];
+      this.customers = data.customers || ['Default Client'];
+      this.projects = data.projects || ['General'];
+      this.settings = { ...this.settings, ...data.settings };
 
-    // Convert date strings back to Date objects and ensure proper format
-    if (this.currentTask) {
-      if (this.currentTask.startTime) {
-        this.currentTask.startTime = new Date(this.currentTask.startTime);
+      // Convert date strings back to Date objects and ensure proper format
+      if (this.currentTask) {
+        console.log('Processing current task:', this.currentTask);
+        if (this.currentTask.startTime) {
+          this.currentTask.startTime = new Date(this.currentTask.startTime);
+        }
+        // Ensure duration is a number
+        this.currentTask.duration = Number(this.currentTask.duration) || 0;
+        console.log('Processed current task:', this.currentTask);
       }
-      // Ensure duration is a number
-      this.currentTask.duration = Number(this.currentTask.duration) || 0;
-    }
-    
-    if (this.pausedTask) {
-      if (this.pausedTask.startTime) {
-        this.pausedTask.startTime = new Date(this.pausedTask.startTime);
+      
+      if (this.pausedTask) {
+        console.log('Processing paused task:', this.pausedTask);
+        if (this.pausedTask.startTime) {
+          this.pausedTask.startTime = new Date(this.pausedTask.startTime);
+        }
+        // Ensure duration is a number
+        this.pausedTask.duration = Number(this.pausedTask.duration) || 0;
+        console.log('Processed paused task:', this.pausedTask);
       }
-      // Ensure duration is a number
-      this.pausedTask.duration = Number(this.pausedTask.duration) || 0;
-    }
-    
-    this.tasks = this.tasks.map(task => ({
-      ...task,
-      startTime: new Date(task.startTime),
-      endTime: task.endTime ? new Date(task.endTime) : null,
-      duration: Number(task.duration) || 0
-    }));
+      
+      this.tasks = this.tasks.map(task => {
+        const processedTask = {
+          ...task,
+          startTime: new Date(task.startTime),
+          endTime: task.endTime ? new Date(task.endTime) : null,
+          duration: Number(task.duration) || 0
+        };
+        return processedTask;
+      });
 
-    console.log('Loaded data:', {
-      currentTask: this.currentTask,
-      pausedTask: this.pausedTask,
-      tasksCount: this.tasks.length
-    });
+      console.log('Final loaded data:', {
+        currentTask: this.currentTask,
+        pausedTask: this.pausedTask,
+        tasksCount: this.tasks.length,
+        customers: this.customers,
+        projects: this.projects
+      });
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
   }
 
   async saveData() {
-    await chrome.storage.local.set({
-      currentTask: this.currentTask,
-      pausedTask: this.pausedTask,
-      tasks: this.tasks,
-      customers: this.customers,
-      projects: this.projects,
-      settings: this.settings
-    });
+    try {
+      await chrome.storage.local.set({
+        currentTask: this.currentTask,
+        pausedTask: this.pausedTask,
+        tasks: this.tasks,
+        customers: this.customers,
+        projects: this.projects,
+        settings: this.settings
+      });
+      console.log('Data saved successfully');
+    } catch (error) {
+      console.error('Error saving data:', error);
+    }
   }
 
   setupEventListeners() {
@@ -122,110 +149,136 @@ class TimeTracker {
   }
 
   async startTask() {
-    const title = document.getElementById('taskTitle').value.trim();
-    const customer = document.getElementById('customerSelect').value || this.customers[0];
-    const project = document.getElementById('projectSelect').value || this.projects[0];
-    const billable = document.getElementById('billableToggle').classList.contains('active');
-    
-    if (!title) return;
-    
-    this.currentTask = {
-      id: Date.now(),
-      title,
-      customer,
-      project,
-      billable,
-      startTime: new Date(),
-      duration: 0
-    };
-    
-    console.log('Started task:', this.currentTask);
-    
-    await this.saveData();
-    this.updateUI();
-    this.updateIcon('active');
-    
-    // Clear form
-    document.getElementById('taskTitle').value = '';
-    document.getElementById('billableToggle').classList.remove('active');
-    this.validateForm();
+    try {
+      const title = document.getElementById('taskTitle').value.trim();
+      const customer = document.getElementById('customerSelect').value || this.customers[0];
+      const project = document.getElementById('projectSelect').value || this.projects[0];
+      const billable = document.getElementById('billableToggle').classList.contains('active');
+      
+      if (!title) return;
+      
+      this.currentTask = {
+        id: Date.now(),
+        title,
+        customer,
+        project,
+        billable,
+        startTime: new Date(),
+        duration: 0
+      };
+      
+      console.log('Started task:', this.currentTask);
+      
+      await this.saveData();
+      this.updateUI();
+      this.updateIcon('active');
+      
+      // Clear form
+      document.getElementById('taskTitle').value = '';
+      document.getElementById('billableToggle').classList.remove('active');
+      this.validateForm();
+    } catch (error) {
+      console.error('Error starting task:', error);
+    }
   }
 
   async pauseTask() {
-    if (!this.currentTask) return;
-    
-    const currentTime = Date.now();
-    const sessionDuration = currentTime - this.currentTask.startTime.getTime();
-    this.currentTask.duration += sessionDuration;
-    
-    this.pausedTask = { ...this.currentTask };
-    this.currentTask = null;
-    
-    console.log('Paused task:', this.pausedTask);
-    
-    await this.saveData();
-    this.updateUI();
-    this.updateIcon('paused');
+    try {
+      if (!this.currentTask) return;
+      
+      const currentTime = Date.now();
+      const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+      this.currentTask.duration += sessionDuration;
+      
+      this.pausedTask = { ...this.currentTask };
+      this.currentTask = null;
+      
+      console.log('Paused task:', this.pausedTask);
+      
+      await this.saveData();
+      this.updateUI();
+      this.updateIcon('paused');
+    } catch (error) {
+      console.error('Error pausing task:', error);
+    }
   }
 
   async stopTask() {
-    if (!this.currentTask) return;
-    
-    const currentTime = Date.now();
-    const sessionDuration = currentTime - this.currentTask.startTime.getTime();
-    this.currentTask.duration += sessionDuration;
-    this.currentTask.endTime = new Date();
-    
-    console.log('Stopped task:', this.currentTask);
-    
-    this.tasks.unshift(this.currentTask);
-    this.currentTask = null;
-    
-    await this.saveData();
-    this.updateUI();
-    this.updateIcon('idle');
-    
-    if (this.settings.webhookEnabled && this.settings.webhookUrl) {
-      this.sendWebhook(this.tasks[0]);
+    try {
+      if (!this.currentTask) return;
+      
+      const currentTime = Date.now();
+      const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+      this.currentTask.duration += sessionDuration;
+      this.currentTask.endTime = new Date();
+      
+      console.log('Stopped task:', this.currentTask);
+      
+      this.tasks.unshift(this.currentTask);
+      this.currentTask = null;
+      
+      await this.saveData();
+      this.updateUI();
+      this.updateIcon('idle');
+      
+      if (this.settings.webhookEnabled && this.settings.webhookUrl) {
+        this.sendWebhook(this.tasks[0]);
+      }
+    } catch (error) {
+      console.error('Error stopping task:', error);
     }
   }
 
   async resumeTask() {
-    if (!this.pausedTask) return;
-    
-    this.currentTask = {
-      ...this.pausedTask,
-      id: Date.now(),
-      startTime: new Date()
-      // Keep the existing duration from paused task
-    };
-    
-    this.pausedTask = null;
-    
-    console.log('Resumed task:', this.currentTask);
-    
-    await this.saveData();
-    this.updateUI();
-    this.updateIcon('active');
+    try {
+      if (!this.pausedTask) return;
+      
+      this.currentTask = {
+        ...this.pausedTask,
+        id: Date.now(),
+        startTime: new Date()
+        // Keep the existing duration from paused task
+      };
+      
+      this.pausedTask = null;
+      
+      console.log('Resumed task:', this.currentTask);
+      
+      await this.saveData();
+      this.updateUI();
+      this.updateIcon('active');
+    } catch (error) {
+      console.error('Error resuming task:', error);
+    }
   }
 
   async stopPausedTask() {
-    if (!this.pausedTask) return;
-    
-    this.pausedTask.endTime = new Date();
-    this.tasks.unshift(this.pausedTask);
-    this.pausedTask = null;
-    
-    await this.saveData();
-    this.updateUI();
-    this.updateIcon('idle');
+    try {
+      if (!this.pausedTask) return;
+      
+      this.pausedTask.endTime = new Date();
+      this.tasks.unshift(this.pausedTask);
+      this.pausedTask = null;
+      
+      await this.saveData();
+      this.updateUI();
+      this.updateIcon('idle');
+    } catch (error) {
+      console.error('Error stopping paused task:', error);
+    }
   }
 
   updateUI() {
-    this.updateTaskStates();
-    this.updateCustomerProjectDropdowns();
-    this.updateSummary();
-    this.updateTaskList();
+    try {
+      console.log('Updating UI...');
+      this.updateTaskStates();
+      this.updateCustomerProjectDropdowns();
+      this.updateSummary();
+      this.updateTaskList();
+      console.log('UI updated successfully');
+    } catch (error) {
+      console.error('Error updating UI:', error);
+    }
   }
 
   updateTaskStates() {
@@ -283,7 +336,10 @@ class TimeTracker {
         startTime: this.currentTask.startTime
       });
       
-      document.getElementById('currentTaskTimer').textContent = formattedTime;
+      const timerElement = document.getElementById('currentTaskTimer');
+      if (timerElement) {
+        timerElement.textContent = formattedTime;
+      }
     }
   }
 
@@ -306,34 +362,41 @@ class TimeTracker {
   }
 
   updateSummary() {
-    const now = new Date();
-    const tasks = this.getTasksForPeriod(this.currentPeriod, now);
-    
-    let totalTime = tasks.reduce((sum, task) => sum + (Number(task.duration) || 0), 0);
-    let billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + (Number(task.duration) || 0), 0);
-    
-    // Add current task time if it's in the current period
-    if (this.currentTask && this.isTaskInPeriod(this.currentTask.startTime, this.currentPeriod, now)) {
-      const currentTime = Date.now();
-      const sessionDuration = currentTime - this.currentTask.startTime.getTime();
-      const currentTaskTotalDuration = this.currentTask.duration + sessionDuration;
+    try {
+      const now = new Date();
+      const tasks = this.getTasksForPeriod(this.currentPeriod, now);
       
-      totalTime += currentTaskTotalDuration;
-      if (this.currentTask.billable) {
-        billableTime += currentTaskTotalDuration;
+      let totalTime = tasks.reduce((sum, task) => sum + (Number(task.duration) || 0), 0);
+      let billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + (Number(task.duration) || 0), 0);
+      
+      // Add current task time if it's in the current period
+      if (this.currentTask && this.isTaskInPeriod(this.currentTask.startTime, this.currentPeriod, now)) {
+        const currentTime = Date.now();
+        const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+        const currentTaskTotalDuration = this.currentTask.duration + sessionDuration;
+        
+        totalTime += currentTaskTotalDuration;
+        if (this.currentTask.billable) {
+          billableTime += currentTaskTotalDuration;
+        }
       }
+      
+      console.log('Summary update:', {
+        period: this.currentPeriod,
+        tasksCount: tasks.length,
+        totalTime,
+        billableTime,
+        hasCurrentTask: !!this.currentTask
+      });
+      
+      const totalTimeEl = document.getElementById('totalTime');
+      const billableTimeEl = document.getElementById('billableTime');
+      
+      if (totalTimeEl) totalTimeEl.textContent = this.formatDuration(totalTime);
+      if (billableTimeEl) billableTimeEl.textContent = this.formatDuration(billableTime);
+    } catch (error) {
+      console.error('Error updating summary:', error);
     }
-    
-    console.log('Summary update:', {
-      period: this.currentPeriod,
-      tasksCount: tasks.length,
-      totalTime,
-      billableTime,
-      hasCurrentTask: !!this.currentTask
-    });
-    
-    document.getElementById('totalTime').textContent = this.formatDuration(totalTime);
-    document.getElementById('billableTime').textContent = this.formatDuration(billableTime);
   }
 
   updateTaskList() {
@@ -373,6 +436,7 @@ class TimeTracker {
       clearInterval(this.timerInterval);
     }
     
+    console.log('Starting timer...');
     this.timerInterval = setInterval(() => {
       if (this.currentTask) {
         this.updateCurrentTaskTimer();
@@ -435,7 +499,8 @@ class TimeTracker {
   switchPeriod(period) {
     this.currentPeriod = period;
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`[data-period="${period}"]`).classList.add('active');
+    const activeBtn = document.querySelector(`[data-period="${period}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
     this.updateSummary();
   }
 
@@ -453,10 +518,14 @@ class TimeTracker {
   }
 
   updateIcon(state) {
-    chrome.runtime.sendMessage({
-      action: 'updateIcon',
-      state: state
-    });
+    try {
+      chrome.runtime.sendMessage({
+        action: 'updateIcon',
+        state: state
+      });
+    } catch (error) {
+      console.error('Error updating icon:', error);
+    }
   }
 
   openSettings() {
@@ -564,5 +633,6 @@ class TimeTracker {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, initializing TimeTracker...');
   new TimeTracker();
 });
