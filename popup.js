@@ -34,21 +34,49 @@ class TimeTracker {
   }
 
   async loadInitialState() {
-    try {
-      console.log('Popup: Requesting initial state from background...');
-      
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'getInitialState' }, resolve);
-      });
-      
-      if (response && response.success) {
-        this.state = response.data;
-        console.log('Popup: Received initial state:', this.state);
-      } else {
-        console.error('Popup: Failed to get initial state:', response);
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`Popup: Requesting initial state from background (attempt ${retryCount + 1}/${maxRetries})...`);
+        
+        const response = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Timeout waiting for background response'));
+          }, 5000); // 5 second timeout
+          
+          chrome.runtime.sendMessage({ action: 'getInitialState' }, (response) => {
+            clearTimeout(timeout);
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(response);
+            }
+          });
+        });
+        
+        if (response && response.success) {
+          this.state = response.data;
+          console.log('Popup: Received initial state:', this.state);
+          return; // Success, exit retry loop
+        } else {
+          throw new Error(response?.error || 'Invalid response from background');
+        }
+      } catch (error) {
+        console.error(`Popup: Error loading initial state (attempt ${retryCount + 1}):`, error);
+        retryCount++;
+        
+        if (retryCount < maxRetries) {
+          // Wait before retrying, with exponential backoff
+          const delay = Math.pow(2, retryCount) * 500; // 1s, 2s, 4s
+          console.log(`Popup: Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          console.error('Popup: Failed to load initial state after all retries');
+          // Continue with default state
+        }
       }
-    } catch (error) {
-      console.error('Popup: Error loading initial state:', error);
     }
   }
 
@@ -142,6 +170,41 @@ class TimeTracker {
     }
   }
 
+  async sendMessageWithRetry(message, maxRetries = 2) {
+    let retryCount = 0;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        const response = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Timeout waiting for response'));
+          }, 3000);
+          
+          chrome.runtime.sendMessage(message, (response) => {
+            clearTimeout(timeout);
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(response);
+            }
+          });
+        });
+        
+        return response; // Success
+      } catch (error) {
+        console.error(`Message failed (attempt ${retryCount + 1}):`, error);
+        retryCount++;
+        
+        if (retryCount <= maxRetries) {
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
   async startTask() {
     try {
       const titleInput = document.getElementById('taskTitle');
@@ -160,11 +223,9 @@ class TimeTracker {
       
       console.log('Popup: Starting task with data:', { title, customer, project, billable });
       
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({
-          action: 'startTask',
-          data: { title, customer, project, billable }
-        }, resolve);
+      const response = await this.sendMessageWithRetry({
+        action: 'startTask',
+        data: { title, customer, project, billable }
       });
       
       if (response && response.success) {
@@ -176,73 +237,75 @@ class TimeTracker {
         this.validateForm();
       } else {
         console.error('Popup: Failed to start task:', response);
+        alert('Failed to start task. Please try again.');
       }
     } catch (error) {
       console.error('Error starting task:', error);
+      alert('Failed to start task. Please try again.');
     }
   }
 
   async pauseTask() {
     try {
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'pauseTask' }, resolve);
-      });
+      const response = await this.sendMessageWithRetry({ action: 'pauseTask' });
       
       if (response && response.success) {
         console.log('Popup: Task paused successfully');
       } else {
         console.error('Popup: Failed to pause task:', response);
+        alert('Failed to pause task. Please try again.');
       }
     } catch (error) {
       console.error('Error pausing task:', error);
+      alert('Failed to pause task. Please try again.');
     }
   }
 
   async stopTask() {
     try {
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'stopTask' }, resolve);
-      });
+      const response = await this.sendMessageWithRetry({ action: 'stopTask' });
       
       if (response && response.success) {
         console.log('Popup: Task stopped successfully');
       } else {
         console.error('Popup: Failed to stop task:', response);
+        alert('Failed to stop task. Please try again.');
       }
     } catch (error) {
       console.error('Error stopping task:', error);
+      alert('Failed to stop task. Please try again.');
     }
   }
 
   async resumeTask() {
     try {
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'resumeTask' }, resolve);
-      });
+      const response = await this.sendMessageWithRetry({ action: 'resumeTask' });
       
       if (response && response.success) {
         console.log('Popup: Task resumed successfully');
       } else {
         console.error('Popup: Failed to resume task:', response);
+        alert('Failed to resume task. Please try again.');
       }
     } catch (error) {
       console.error('Error resuming task:', error);
+      alert('Failed to resume task. Please try again.');
     }
   }
 
   async stopPausedTask() {
     try {
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'stopPausedTask' }, resolve);
-      });
+      const response = await this.sendMessageWithRetry({ action: 'stopPausedTask' });
       
       if (response && response.success) {
         console.log('Popup: Paused task stopped successfully');
       } else {
         console.error('Popup: Failed to stop paused task:', response);
+        alert('Failed to stop paused task. Please try again.');
       }
     } catch (error) {
       console.error('Error stopping paused task:', error);
+      alert('Failed to stop paused task. Please try again.');
     }
   }
 
@@ -320,6 +383,12 @@ class TimeTracker {
       if (this.state.currentTask && this.state.currentTask.startTime) {
         const currentTime = Date.now();
         const startTime = new Date(this.state.currentTask.startTime);
+        
+        if (isNaN(startTime.getTime())) {
+          console.warn('Invalid start time for current task');
+          return;
+        }
+        
         const sessionDuration = currentTime - startTime.getTime();
         const totalDuration = this.state.currentTask.duration + sessionDuration;
         const formattedTime = this.formatDuration(totalDuration);
@@ -384,12 +453,15 @@ class TimeTracker {
       if (this.state.currentTask && this.isTaskInPeriod(this.state.currentTask.startTime, this.currentPeriod, now)) {
         const currentTime = Date.now();
         const startTime = new Date(this.state.currentTask.startTime);
-        const sessionDuration = currentTime - startTime.getTime();
-        const currentTaskTotalDuration = this.state.currentTask.duration + sessionDuration;
         
-        totalTime += currentTaskTotalDuration;
-        if (this.state.currentTask.billable) {
-          billableTime += currentTaskTotalDuration;
+        if (!isNaN(startTime.getTime())) {
+          const sessionDuration = currentTime - startTime.getTime();
+          const currentTaskTotalDuration = this.state.currentTask.duration + sessionDuration;
+          
+          totalTime += currentTaskTotalDuration;
+          if (this.state.currentTask.billable) {
+            billableTime += currentTaskTotalDuration;
+          }
         }
       }
       
@@ -539,9 +611,7 @@ class TimeTracker {
 
   async exportTasks() {
     try {
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'exportTasks' }, resolve);
-      });
+      const response = await this.sendMessageWithRetry({ action: 'exportTasks' });
       
       if (response && response.success) {
         const csvContent = response.data;
@@ -564,6 +634,7 @@ class TimeTracker {
       }
     } catch (error) {
       console.error('Error exporting tasks:', error);
+      alert('Failed to export tasks. Please try again.');
     }
   }
 
