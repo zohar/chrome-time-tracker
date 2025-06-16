@@ -2,6 +2,7 @@
 
 A professional time tracking Chrome extension with task management, reporting, and webhook integration.
 
+
 ## Features
 
 ### Core Functionality
