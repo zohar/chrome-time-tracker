@@ -148,47 +148,68 @@ class BackgroundService {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log('Background: Received message:', message);
       
-      switch (message.action) {
-        case 'getInitialState':
-          this.handleGetInitialState(sendResponse);
-          return true; // Keep message channel open for async response
-          
-        case 'startTask':
-          this.handleStartTask(message.data, sendResponse);
-          return true;
-          
-        case 'pauseTask':
-          this.handlePauseTask(sendResponse);
-          return true;
-          
-        case 'stopTask':
-          this.handleStopTask(sendResponse);
-          return true;
-          
-        case 'resumeTask':
-          this.handleResumeTask(sendResponse);
-          return true;
-          
-        case 'stopPausedTask':
-          this.handleStopPausedTask(sendResponse);
-          return true;
-          
-        case 'exportTasks':
-          this.handleExportTasks(sendResponse);
-          return true;
-          
-        case 'updateIcon':
-          this.updateIcon(message.state);
-          break;
-          
-        case 'updateSettings':
-          this.handleUpdateSettings(message.data, sendResponse);
-          return true;
+      // Handle async operations properly
+      const handleAsync = async () => {
+        try {
+          switch (message.action) {
+            case 'getInitialState':
+              return await this.handleGetInitialState();
+              
+            case 'startTask':
+              return await this.handleStartTask(message.data);
+              
+            case 'pauseTask':
+              return await this.handlePauseTask();
+              
+            case 'stopTask':
+              return await this.handleStopTask();
+              
+            case 'resumeTask':
+              return await this.handleResumeTask();
+              
+            case 'stopPausedTask':
+              return await this.handleStopPausedTask();
+              
+            case 'exportTasks':
+              return await this.handleExportTasks();
+              
+            case 'updateSettings':
+              return await this.handleUpdateSettings(message.data);
+              
+            case 'updateIcon':
+              this.updateIcon(message.state);
+              return { success: true };
+              
+            default:
+              return { success: false, error: 'Unknown action' };
+          }
+        } catch (error) {
+          console.error('Background: Error handling message:', error);
+          return { success: false, error: error.message };
+        }
+      };
+
+      // For async operations, handle them and send response
+      if (['getInitialState', 'startTask', 'pauseTask', 'stopTask', 'resumeTask', 'stopPausedTask', 'exportTasks', 'updateSettings'].includes(message.action)) {
+        handleAsync().then(response => {
+          console.log('Background: Sending response:', response);
+          sendResponse(response);
+        }).catch(error => {
+          console.error('Background: Error in async handler:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+        return true; // Keep message channel open for async response
+      }
+      
+      // For sync operations
+      if (message.action === 'updateIcon') {
+        this.updateIcon(message.state);
+        sendResponse({ success: true });
       }
     });
   }
 
-  async handleGetInitialState(sendResponse) {
+  async handleGetInitialState() {
     try {
       const state = {
         currentTask: this.currentTask,
@@ -200,14 +221,14 @@ class BackgroundService {
       };
       
       console.log('Background: Sending initial state:', state);
-      sendResponse({ success: true, data: state });
+      return { success: true, data: state };
     } catch (error) {
       console.error('Background: Error getting initial state:', error);
-      sendResponse({ success: false, error: error.message });
+      return { success: false, error: error.message };
     }
   }
 
-  async handleStartTask(taskData, sendResponse) {
+  async handleStartTask(taskData) {
     try {
       this.currentTask = {
         id: Date.now(),
@@ -225,18 +246,17 @@ class BackgroundService {
       this.updateIcon('active');
       this.notifyPopupStateChange();
       
-      sendResponse({ success: true, data: this.currentTask });
+      return { success: true, data: this.currentTask };
     } catch (error) {
       console.error('Background: Error starting task:', error);
-      sendResponse({ success: false, error: error.message });
+      return { success: false, error: error.message };
     }
   }
 
-  async handlePauseTask(sendResponse) {
+  async handlePauseTask() {
     try {
       if (!this.currentTask) {
-        sendResponse({ success: false, error: 'No active task to pause' });
-        return;
+        return { success: false, error: 'No active task to pause' };
       }
       
       const currentTime = Date.now();
@@ -252,18 +272,17 @@ class BackgroundService {
       this.updateIcon('paused');
       this.notifyPopupStateChange();
       
-      sendResponse({ success: true, data: this.pausedTask });
+      return { success: true, data: this.pausedTask };
     } catch (error) {
       console.error('Background: Error pausing task:', error);
-      sendResponse({ success: false, error: error.message });
+      return { success: false, error: error.message };
     }
   }
 
-  async handleStopTask(sendResponse) {
+  async handleStopTask() {
     try {
       if (!this.currentTask) {
-        sendResponse({ success: false, error: 'No active task to stop' });
-        return;
+        return { success: false, error: 'No active task to stop' };
       }
       
       const currentTime = Date.now();
@@ -286,18 +305,17 @@ class BackgroundService {
         this.sendWebhook(completedTask);
       }
       
-      sendResponse({ success: true, data: completedTask });
+      return { success: true, data: completedTask };
     } catch (error) {
       console.error('Background: Error stopping task:', error);
-      sendResponse({ success: false, error: error.message });
+      return { success: false, error: error.message };
     }
   }
 
-  async handleResumeTask(sendResponse) {
+  async handleResumeTask() {
     try {
       if (!this.pausedTask) {
-        sendResponse({ success: false, error: 'No paused task to resume' });
-        return;
+        return { success: false, error: 'No paused task to resume' };
       }
       
       this.currentTask = {
@@ -315,18 +333,17 @@ class BackgroundService {
       this.updateIcon('active');
       this.notifyPopupStateChange();
       
-      sendResponse({ success: true, data: this.currentTask });
+      return { success: true, data: this.currentTask };
     } catch (error) {
       console.error('Background: Error resuming task:', error);
-      sendResponse({ success: false, error: error.message });
+      return { success: false, error: error.message };
     }
   }
 
-  async handleStopPausedTask(sendResponse) {
+  async handleStopPausedTask() {
     try {
       if (!this.pausedTask) {
-        sendResponse({ success: false, error: 'No paused task to stop' });
-        return;
+        return { success: false, error: 'No paused task to stop' };
       }
       
       this.pausedTask.endTime = new Date();
@@ -338,29 +355,28 @@ class BackgroundService {
       this.updateIcon('idle');
       this.notifyPopupStateChange();
       
-      sendResponse({ success: true, data: completedTask });
+      return { success: true, data: completedTask };
     } catch (error) {
       console.error('Background: Error stopping paused task:', error);
-      sendResponse({ success: false, error: error.message });
+      return { success: false, error: error.message };
     }
   }
 
-  async handleExportTasks(sendResponse) {
+  async handleExportTasks() {
     try {
       if (this.tasks.length === 0) {
-        sendResponse({ success: false, error: 'No tasks to export' });
-        return;
+        return { success: false, error: 'No tasks to export' };
       }
 
       const csvContent = this.generateCSV(this.tasks);
-      sendResponse({ success: true, data: csvContent });
+      return { success: true, data: csvContent };
     } catch (error) {
       console.error('Background: Error exporting tasks:', error);
-      sendResponse({ success: false, error: error.message });
+      return { success: false, error: error.message };
     }
   }
 
-  async handleUpdateSettings(settingsData, sendResponse) {
+  async handleUpdateSettings(settingsData) {
     try {
       this.customers = settingsData.customers || this.customers;
       this.projects = settingsData.projects || this.projects;
@@ -369,10 +385,10 @@ class BackgroundService {
       await this.saveData();
       this.notifyPopupStateChange();
       
-      sendResponse({ success: true });
+      return { success: true };
     } catch (error) {
       console.error('Background: Error updating settings:', error);
-      sendResponse({ success: false, error: error.message });
+      return { success: false, error: error.message };
     }
   }
 
