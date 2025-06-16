@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time Tracker Pro - Settings</title>
+  <link href="options.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Time Tracker Pro Settings</h1>
+      <p>Configure your time tracking preferences and integrations.</p>
+    </div>
+
+    <div class="settings-section">
+      <h2>General Settings</h2>
+      
+      <div class="form-group">
+        <label for="defaultCustomer">Default Customer</label>
+        <select id="defaultCustomer" class="form-control">
+          <option value="">Select default customer</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="defaultProject">Default Project</label>
+        <select id="defaultProject" class="form-control">
+          <option value="">Select default project</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Customers & Projects</h2>
+      
+      <div class="form-group">
+        <label for="customersInput">Customers (one per line)</label>
+        <textarea id="customersInput" class="form-control" rows="5" placeholder="Default Client&#10;ABC Corporation&#10;XYZ Inc"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="projectsInput">Projects (one per line)</label>
+        <textarea id="projectsInput" class="form-control" rows="5" placeholder="General&#10;Development&#10;Meeting&#10;Support"></textarea>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Webhook Integration</h2>
+      <p class="section-description">Automatically sync your time logs with external services.</p>
+      
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="webhookEnabled" class="checkbox">
+          <span class="checkmark"></span>
+          Enable webhook integration
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label for="webhookUrl">Webhook URL</label>
+        <input type="url" id="webhookUrl" class="form-control" placeholder="https://your-api.com/webhook">
+        <small class="help-text">Tasks will be sent to this URL when completed</small>
+      </div>
+
+      <div class="form-group">
+        <button id="testWebhook" class="btn btn-secondary" disabled>Test Webhook</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Data Management</h2>
+      
+      <div class="form-group">
+        <button id="exportAllData" class="btn btn-primary">Export All Data</button>
+        <small class="help-text">Download all your time tracking data as CSV</small>
+      </div>
+
+      <div class="form-group">
+        <label for="importData">Import Data</label>
+        <input type="file" id="importData" class="form-control" accept=".csv">
+        <small class="help-text">Import tasks from CSV file</small>
+      </div>
+
+      <div class="form-group danger-zone">
+        <h3>Danger Zone</h3>
+        <button id="clearAllData" class="btn btn-danger">Clear All Data</button>
+        <small class="help-text">This will permanently delete all your time tracking data</small>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button id="saveSettings" class="btn btn-primary">Save Settings</button>
+      <button id="resetSettings" class="btn btn-secondary">Reset to Defaults</button>
+    </div>
+
+    <div id="saveStatus" class="save-status" style="display: none;"></div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
