@@ -14,6 +14,7 @@ class TimeTracker {
     this.currentPeriod = 'today';
     this.timerInterval = null;
     
+    console.log('TimeTracker constructor called');
     this.init();
   }
 
@@ -111,49 +112,89 @@ class TimeTracker {
   }
 
   setupEventListeners() {
-    // Task controls
-    document.getElementById('startBtn').addEventListener('click', () => this.startTask());
-    document.getElementById('pauseBtn').addEventListener('click', () => this.pauseTask());
-    document.getElementById('stopBtn').addEventListener('click', () => this.stopTask());
-    document.getElementById('resumeBtn').addEventListener('click', () => this.resumeTask());
-    document.getElementById('stopPausedBtn').addEventListener('click', () => this.stopPausedTask());
-    
-    // Form inputs
-    document.getElementById('taskTitle').addEventListener('input', () => this.validateForm());
-    document.getElementById('billableToggle').addEventListener('click', () => this.toggleBillable());
-    
-    // Settings
-    document.getElementById('settingsBtn').addEventListener('click', () => this.openSettings());
-    
-    // Summary tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => this.switchPeriod(e.target.dataset.period));
-    });
-    
-    // Export
-    document.getElementById('exportBtn').addEventListener('click', () => this.exportTasks());
-    
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+    try {
+      console.log('Setting up event listeners...');
+      
+      // Task controls
+      const startBtn = document.getElementById('startBtn');
+      const pauseBtn = document.getElementById('pauseBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      const resumeBtn = document.getElementById('resumeBtn');
+      const stopPausedBtn = document.getElementById('stopPausedBtn');
+      
+      if (startBtn) startBtn.addEventListener('click', () => this.startTask());
+      if (pauseBtn) pauseBtn.addEventListener('click', () => this.pauseTask());
+      if (stopBtn) stopBtn.addEventListener('click', () => this.stopTask());
+      if (resumeBtn) resumeBtn.addEventListener('click', () => this.resumeTask());
+      if (stopPausedBtn) stopPausedBtn.addEventListener('click', () => this.stopPausedTask());
+      
+      // Form inputs
+      const taskTitle = document.getElementById('taskTitle');
+      const billableToggle = document.getElementById('billableToggle');
+      
+      if (taskTitle) taskTitle.addEventListener('input', () => this.validateForm());
+      if (billableToggle) billableToggle.addEventListener('click', () => this.toggleBillable());
+      
+      // Settings
+      const settingsBtn = document.getElementById('settingsBtn');
+      if (settingsBtn) settingsBtn.addEventListener('click', () => this.openSettings());
+      
+      // Summary tabs
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => this.switchPeriod(e.target.dataset.period));
+      });
+      
+      // Export
+      const exportBtn = document.getElementById('exportBtn');
+      if (exportBtn) exportBtn.addEventListener('click', () => this.exportTasks());
+      
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+      
+      console.log('Event listeners set up successfully');
+    } catch (error) {
+      console.error('Error setting up event listeners:', error);
+    }
   }
 
   validateForm() {
-    const title = document.getElementById('taskTitle').value.trim();
-    const startBtn = document.getElementById('startBtn');
-    startBtn.disabled = !title;
+    try {
+      const titleInput = document.getElementById('taskTitle');
+      const startBtn = document.getElementById('startBtn');
+      
+      if (titleInput && startBtn) {
+        const title = titleInput.value.trim();
+        startBtn.disabled = !title;
+      }
+    } catch (error) {
+      console.error('Error validating form:', error);
+    }
   }
 
   toggleBillable() {
-    const toggle = document.getElementById('billableToggle');
-    toggle.classList.toggle('active');
+    try {
+      const toggle = document.getElementById('billableToggle');
+      if (toggle) {
+        toggle.classList.toggle('active');
+      }
+    } catch (error) {
+      console.error('Error toggling billable:', error);
+    }
   }
 
   async startTask() {
     try {
-      const title = document.getElementById('taskTitle').value.trim();
-      const customer = document.getElementById('customerSelect').value || this.customers[0];
-      const project = document.getElementById('projectSelect').value || this.projects[0];
-      const billable = document.getElementById('billableToggle').classList.contains('active');
+      const titleInput = document.getElementById('taskTitle');
+      const customerSelect = document.getElementById('customerSelect');
+      const projectSelect = document.getElementById('projectSelect');
+      const billableToggle = document.getElementById('billableToggle');
+      
+      if (!titleInput) return;
+      
+      const title = titleInput.value.trim();
+      const customer = customerSelect ? customerSelect.value || this.customers[0] : this.customers[0];
+      const project = projectSelect ? projectSelect.value || this.projects[0] : this.projects[0];
+      const billable = billableToggle ? billableToggle.classList.contains('active') : false;
       
       if (!title) return;
       
@@ -174,8 +215,8 @@ class TimeTracker {
       this.updateIcon('active');
       
       // Clear form
-      document.getElementById('taskTitle').value = '';
-      document.getElementById('billableToggle').classList.remove('active');
+      titleInput.value = '';
+      if (billableToggle) billableToggle.classList.remove('active');
       this.validateForm();
     } catch (error) {
       console.error('Error starting task:', error);
@@ -282,82 +323,110 @@ class TimeTracker {
   }
 
   updateTaskStates() {
-    const currentTaskEl = document.getElementById('currentTask');
-    const pausedTaskEl = document.getElementById('pausedTask');
-    const startTaskEl = document.getElementById('startTask');
-    
-    console.log('Updating task states:', {
-      hasCurrentTask: !!this.currentTask,
-      hasPausedTask: !!this.pausedTask
-    });
-    
-    if (this.currentTask) {
-      currentTaskEl.style.display = 'block';
-      pausedTaskEl.style.display = 'none';
-      startTaskEl.style.display = 'none';
+    try {
+      const currentTaskEl = document.getElementById('currentTask');
+      const pausedTaskEl = document.getElementById('pausedTask');
+      const startTaskEl = document.getElementById('startTask');
       
-      document.getElementById('currentTaskTitle').textContent = this.currentTask.title;
-      document.getElementById('currentTaskCustomer').textContent = this.currentTask.customer;
-      document.getElementById('currentTaskProject').textContent = this.currentTask.project;
-      document.getElementById('currentTaskBillable').style.display = this.currentTask.billable ? 'inline-flex' : 'none';
+      console.log('Updating task states:', {
+        hasCurrentTask: !!this.currentTask,
+        hasPausedTask: !!this.pausedTask
+      });
       
-      // Update timer immediately
-      this.updateCurrentTaskTimer();
-      
-    } else if (this.pausedTask) {
-      currentTaskEl.style.display = 'none';
-      pausedTaskEl.style.display = 'block';
-      startTaskEl.style.display = 'none';
-      
-      document.getElementById('pausedTaskTitle').textContent = this.pausedTask.title;
-      document.getElementById('pausedTaskCustomer').textContent = this.pausedTask.customer;
-      document.getElementById('pausedTaskProject').textContent = this.pausedTask.project;
-      document.getElementById('pausedTaskBillable').style.display = this.pausedTask.billable ? 'inline-flex' : 'none';
-      document.getElementById('pausedTaskTimer').textContent = this.formatDuration(this.pausedTask.duration);
-      
-    } else {
-      currentTaskEl.style.display = 'none';
-      pausedTaskEl.style.display = 'none';
-      startTaskEl.style.display = 'block';
+      if (this.currentTask) {
+        if (currentTaskEl) currentTaskEl.style.display = 'block';
+        if (pausedTaskEl) pausedTaskEl.style.display = 'none';
+        if (startTaskEl) startTaskEl.style.display = 'none';
+        
+        const titleEl = document.getElementById('currentTaskTitle');
+        const customerEl = document.getElementById('currentTaskCustomer');
+        const projectEl = document.getElementById('currentTaskProject');
+        const billableEl = document.getElementById('currentTaskBillable');
+        
+        if (titleEl) titleEl.textContent = this.currentTask.title;
+        if (customerEl) customerEl.textContent = this.currentTask.customer;
+        if (projectEl) projectEl.textContent = this.currentTask.project;
+        if (billableEl) billableEl.style.display = this.currentTask.billable ? 'inline-flex' : 'none';
+        
+        // Update timer immediately
+        this.updateCurrentTaskTimer();
+        
+      } else if (this.pausedTask) {
+        if (currentTaskEl) currentTaskEl.style.display = 'none';
+        if (pausedTaskEl) pausedTaskEl.style.display = 'block';
+        if (startTaskEl) startTaskEl.style.display = 'none';
+        
+        const titleEl = document.getElementById('pausedTaskTitle');
+        const customerEl = document.getElementById('pausedTaskCustomer');
+        const projectEl = document.getElementById('pausedTaskProject');
+        const billableEl = document.getElementById('pausedTaskBillable');
+        const timerEl = document.getElementById('pausedTaskTimer');
+        
+        if (titleEl) titleEl.textContent = this.pausedTask.title;
+        if (customerEl) customerEl.textContent = this.pausedTask.customer;
+        if (projectEl) projectEl.textContent = this.pausedTask.project;
+        if (billableEl) billableEl.style.display = this.pausedTask.billable ? 'inline-flex' : 'none';
+        if (timerEl) timerEl.textContent = this.formatDuration(this.pausedTask.duration);
+        
+      } else {
+        if (currentTaskEl) currentTaskEl.style.display = 'none';
+        if (pausedTaskEl) pausedTaskEl.style.display = 'none';
+        if (startTaskEl) startTaskEl.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('Error updating task states:', error);
     }
   }
 
   updateCurrentTaskTimer() {
-    if (this.currentTask && this.currentTask.startTime) {
-      const currentTime = Date.now();
-      const sessionDuration = currentTime - this.currentTask.startTime.getTime();
-      const totalDuration = this.currentTask.duration + sessionDuration;
-      const formattedTime = this.formatDuration(totalDuration);
-      
-      console.log('Timer update:', {
-        sessionDuration,
-        totalDuration,
-        formattedTime,
-        startTime: this.currentTask.startTime
-      });
-      
-      const timerElement = document.getElementById('currentTaskTimer');
-      if (timerElement) {
-        timerElement.textContent = formattedTime;
+    try {
+      if (this.currentTask && this.currentTask.startTime) {
+        const currentTime = Date.now();
+        const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+        const totalDuration = this.currentTask.duration + sessionDuration;
+        const formattedTime = this.formatDuration(totalDuration);
+        
+        console.log('Timer update:', {
+          sessionDuration,
+          totalDuration,
+          formattedTime,
+          startTime: this.currentTask.startTime
+        });
+        
+        const timerElement = document.getElementById('currentTaskTimer');
+        if (timerElement) {
+          timerElement.textContent = formattedTime;
+        }
       }
+    } catch (error) {
+      console.error('Error updating current task timer:', error);
     }
   }
 
   updateCustomerProjectDropdowns() {
-    const customerSelect = document.getElementById('customerSelect');
-    const projectSelect = document.getElementById('projectSelect');
-    
-    customerSelect.innerHTML = '<option value="">Select Customer</option>' +
-      this.customers.map(c => `<option value="${c}">${c}</option>`).join('');
-    
-    projectSelect.innerHTML = '<option value="">Select Project</option>' +
-      this.projects.map(p => `<option value="${p}">${p}</option>`).join('');
-    
-    if (this.settings.defaultCustomer) {
-      customerSelect.value = this.settings.defaultCustomer;
-    }
-    if (this.settings.defaultProject) {
-      projectSelect.value = this.settings.defaultProject;
+    try {
+      const customerSelect = document.getElementById('customerSelect');
+      const projectSelect = document.getElementById('projectSelect');
+      
+      if (customerSelect) {
+        customerSelect.innerHTML = '<option value="">Select Customer</option>' +
+          this.customers.map(c => `<option value="${c}">${c}</option>`).join('');
+        
+        if (this.settings.defaultCustomer) {
+          customerSelect.value = this.settings.defaultCustomer;
+        }
+      }
+      
+      if (projectSelect) {
+        projectSelect.innerHTML = '<option value="">Select Project</option>' +
+          this.projects.map(p => `<option value="${p}">${p}</option>`).join('');
+        
+        if (this.settings.defaultProject) {
+          projectSelect.value = this.settings.defaultProject;
+        }
+      }
+    } catch (error) {
+      console.error('Error updating dropdowns:', error);
     }
   }
 
@@ -400,49 +469,59 @@ class TimeTracker {
   }
 
   updateTaskList() {
-    const taskList = document.getElementById('taskList');
-    const recentTasks = this.tasks.slice(0, 10);
-    
-    if (recentTasks.length === 0) {
-      taskList.innerHTML = '<div class="empty-state">No tasks yet. Start tracking your first task!</div>';
-      return;
-    }
-    
-    taskList.innerHTML = recentTasks.map(task => `
-      <div class="task-item" data-task-id="${task.id}">
-        <div class="task-item-info">
-          <div class="task-item-title">${task.title}</div>
-          <div class="task-item-meta">
-            ${task.customer} • ${task.project}
-            ${task.billable ? '<span class="billable-indicator">💰</span>' : ''}
+    try {
+      const taskList = document.getElementById('taskList');
+      if (!taskList) return;
+      
+      const recentTasks = this.tasks.slice(0, 10);
+      
+      if (recentTasks.length === 0) {
+        taskList.innerHTML = '<div class="empty-state">No tasks yet. Start tracking your first task!</div>';
+        return;
+      }
+      
+      taskList.innerHTML = recentTasks.map(task => `
+        <div class="task-item" data-task-id="${task.id}">
+          <div class="task-item-info">
+            <div class="task-item-title">${task.title}</div>
+            <div class="task-item-meta">
+              ${task.customer} • ${task.project}
+              ${task.billable ? '<span class="billable-indicator">💰</span>' : ''}
+            </div>
           </div>
+          <div class="task-item-duration">${this.formatDuration(Number(task.duration) || 0)}</div>
         </div>
-        <div class="task-item-duration">${this.formatDuration(Number(task.duration) || 0)}</div>
-      </div>
-    `).join('');
-    
-    // Add click handlers for editing tasks
-    taskList.querySelectorAll('.task-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const taskId = parseInt(item.dataset.taskId);
-        this.editTask(taskId);
+      `).join('');
+      
+      // Add click handlers for editing tasks
+      taskList.querySelectorAll('.task-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const taskId = parseInt(item.dataset.taskId);
+          this.editTask(taskId);
+        });
       });
-    });
+    } catch (error) {
+      console.error('Error updating task list:', error);
+    }
   }
 
   startTimer() {
-    // Clear any existing timer
-    if (this.timerInterval) {
-      clearInterval(this.timerInterval);
-    }
-    
-    console.log('Starting timer...');
-    this.timerInterval = setInterval(() => {
-      if (this.currentTask) {
-        this.updateCurrentTaskTimer();
-        this.updateSummary();
+    try {
+      // Clear any existing timer
+      if (this.timerInterval) {
+        clearInterval(this.timerInterval);
       }
-    }, 1000);
+      
+      console.log('Starting timer...');
+      this.timerInterval = setInterval(() => {
+        if (this.currentTask) {
+          this.updateCurrentTaskTimer();
+          this.updateSummary();
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Error starting timer:', error);
+    }
   }
 
   getTasksForPeriod(period, date) {
@@ -497,11 +576,15 @@ class TimeTracker {
   }
 
   switchPeriod(period) {
-    this.currentPeriod = period;
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    const activeBtn = document.querySelector(`[data-period="${period}"]`);
-    if (activeBtn) activeBtn.classList.add('active');
-    this.updateSummary();
+    try {
+      this.currentPeriod = period;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.querySelector(`[data-period="${period}"]`);
+      if (activeBtn) activeBtn.classList.add('active');
+      this.updateSummary();
+    } catch (error) {
+      console.error('Error switching period:', error);
+    }
   }
 
   formatDuration(ms) {
@@ -529,7 +612,11 @@ class TimeTracker {
   }
 
   openSettings() {
-    chrome.runtime.openOptionsPage();
+    try {
+      chrome.runtime.openOptionsPage();
+    } catch (error) {
+      console.error('Error opening settings:', error);
+    }
   }
 
   editTask(taskId) {
@@ -538,23 +625,27 @@ class TimeTracker {
   }
 
   exportTasks() {
-    if (this.tasks.length === 0) {
-      alert('No tasks to export.');
-      return;
-    }
+    try {
+      if (this.tasks.length === 0) {
+        alert('No tasks to export.');
+        return;
+      }
 
-    const csvContent = this.generateCSV(this.tasks);
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `time-tracker-export-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const csvContent = this.generateCSV(this.tasks);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `time-tracker-export-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting tasks:', error);
+    }
   }
 
   generateCSV(tasks) {
@@ -579,31 +670,36 @@ class TimeTracker {
   }
 
   handleKeyboard(e) {
-    if (e.ctrlKey || e.metaKey) {
-      switch (e.key) {
-        case 'j':
-          e.preventDefault();
-          if (this.currentTask) {
-            this.pauseTask();
-          } else if (this.pausedTask) {
-            this.resumeTask();
-          }
-          break;
-        case 'k':
-          e.preventDefault();
-          if (this.currentTask) {
-            this.stopTask();
-          } else if (this.pausedTask) {
-            this.stopPausedTask();
-          }
-          break;
-        case 'Enter':
-          e.preventDefault();
-          if (!this.currentTask && !this.pausedTask) {
-            document.getElementById('startBtn').click();
-          }
-          break;
+    try {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case 'j':
+            e.preventDefault();
+            if (this.currentTask) {
+              this.pauseTask();
+            } else if (this.pausedTask) {
+              this.resumeTask();
+            }
+            break;
+          case 'k':
+            e.preventDefault();
+            if (this.currentTask) {
+              this.stopTask();
+            } else if (this.pausedTask) {
+              this.stopPausedTask();
+            }
+            break;
+          case 'Enter':
+            e.preventDefault();
+            if (!this.currentTask && !this.pausedTask) {
+              const startBtn = document.getElementById('startBtn');
+              if (startBtn) startBtn.click();
+            }
+            break;
+        }
       }
+    } catch (error) {
+      console.error('Error handling keyboard:', error);
     }
   }
 
@@ -632,7 +728,24 @@ class TimeTracker {
 }
 
 // Initialize when DOM is ready
+console.log('Script loaded, waiting for DOM...');
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, initializing TimeTracker...');
-  new TimeTracker();
+  try {
+    new TimeTracker();
+  } catch (error) {
+    console.error('Failed to initialize TimeTracker:', error);
+  }
 });
+
+// Also try to initialize immediately if DOM is already loaded
+if (document.readyState === 'loading') {
+  console.log('DOM is still loading, waiting...');
+} else {
+  console.log('DOM already loaded, initializing immediately...');
+  try {
+    new TimeTracker();
+  } catch (error) {
+    console.error('Failed to initialize TimeTracker immediately:', error);
+  }
+}
