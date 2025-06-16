@@ -175,6 +175,78 @@ class TimeTracker {
     }
   }
 
+  setupEditModalTimeListeners() {
+    try {
+      const editStartTime = document.getElementById('editStartTime');
+      const editEndTime = document.getElementById('editEndTime');
+      const editDuration = document.getElementById('editDuration');
+      
+      if (editStartTime && editEndTime && editDuration) {
+        // Listen for changes in date/time fields
+        editStartTime.addEventListener('input', () => this.handleEditTimeChange('dates'));
+        editEndTime.addEventListener('input', () => this.handleEditTimeChange('dates'));
+        
+        // Listen for changes in duration field
+        editDuration.addEventListener('input', () => this.handleEditTimeChange('duration'));
+        
+        console.log('Edit modal time listeners set up successfully');
+      }
+    } catch (error) {
+      console.error('Error setting up edit modal time listeners:', error);
+    }
+  }
+
+  handleEditTimeChange(changedField) {
+    try {
+      const editStartTime = document.getElementById('editStartTime');
+      const editEndTime = document.getElementById('editEndTime');
+      const editDuration = document.getElementById('editDuration');
+      
+      if (!editStartTime || !editEndTime || !editDuration) return;
+      
+      if (changedField === 'dates') {
+        // Date/time fields changed - update duration
+        const startTimeStr = editStartTime.value;
+        const endTimeStr = editEndTime.value;
+        
+        if (startTimeStr && endTimeStr) {
+          const startTime = new Date(startTimeStr);
+          const endTime = new Date(endTimeStr);
+          
+          if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime()) && endTime > startTime) {
+            const duration = endTime.getTime() - startTime.getTime();
+            editDuration.value = this.formatDurationForInput(duration);
+          } else {
+            editDuration.value = '00:00:00';
+          }
+        } else {
+          editDuration.value = '00:00:00';
+        }
+        
+      } else if (changedField === 'duration') {
+        // Duration field changed - update end time
+        const startTimeStr = editStartTime.value;
+        const durationStr = editDuration.value;
+        
+        if (startTimeStr && durationStr) {
+          const startTime = new Date(startTimeStr);
+          const duration = this.parseDurationInput(durationStr);
+          
+          if (!isNaN(startTime.getTime()) && duration !== null) {
+            const endTime = new Date(startTime.getTime() + duration);
+            editEndTime.value = this.formatDateTimeLocal(endTime);
+          } else {
+            editEndTime.value = '';
+          }
+        } else {
+          editEndTime.value = '';
+        }
+      }
+    } catch (error) {
+      console.error('Error handling edit time change:', error);
+    }
+  }
+
   validateForm() {
     try {
       const titleInput = document.getElementById('taskTitle');
@@ -402,6 +474,9 @@ class TimeTracker {
       // Show modal
       document.getElementById('editModal').style.display = 'flex';
       
+      // Set up time field listeners after modal is shown and populated
+      this.setupEditModalTimeListeners();
+      
       // Focus on title field
       setTimeout(() => {
         document.getElementById('editTaskTitle').focus();
@@ -479,7 +554,7 @@ class TimeTracker {
         }
       }
       
-      // Parse duration
+      // Parse duration - this should be the most up-to-date value due to real-time sync
       if (durationStr) {
         duration = this.parseDurationInput(durationStr);
         if (duration === null) {
@@ -492,11 +567,6 @@ class TimeTracker {
       if (startTime && endTime && startTime >= endTime) {
         alert('End time must be after start time');
         return;
-      }
-      
-      // Calculate duration from dates if not provided
-      if (startTime && endTime && !durationStr) {
-        duration = endTime.getTime() - startTime.getTime();
       }
       
       // Update task object
