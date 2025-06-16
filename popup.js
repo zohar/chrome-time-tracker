@@ -47,7 +47,7 @@ class TimeTracker {
         this.currentTask.startTime = new Date(this.currentTask.startTime);
       }
       // Ensure duration is a number
-      this.currentTask.duration = this.currentTask.duration || 0;
+      this.currentTask.duration = Number(this.currentTask.duration) || 0;
     }
     
     if (this.pausedTask) {
@@ -55,15 +55,21 @@ class TimeTracker {
         this.pausedTask.startTime = new Date(this.pausedTask.startTime);
       }
       // Ensure duration is a number
-      this.pausedTask.duration = this.pausedTask.duration || 0;
+      this.pausedTask.duration = Number(this.pausedTask.duration) || 0;
     }
     
     this.tasks = this.tasks.map(task => ({
       ...task,
       startTime: new Date(task.startTime),
       endTime: task.endTime ? new Date(task.endTime) : null,
-      duration: task.duration || 0
+      duration: Number(task.duration) || 0
     }));
+
+    console.log('Loaded data:', {
+      currentTask: this.currentTask,
+      pausedTask: this.pausedTask,
+      tasksCount: this.tasks.length
+    });
   }
 
   async saveData() {
@@ -133,6 +139,8 @@ class TimeTracker {
       duration: 0
     };
     
+    console.log('Started task:', this.currentTask);
+    
     await this.saveData();
     this.updateUI();
     this.updateIcon('active');
@@ -153,6 +161,8 @@ class TimeTracker {
     this.pausedTask = { ...this.currentTask };
     this.currentTask = null;
     
+    console.log('Paused task:', this.pausedTask);
+    
     await this.saveData();
     this.updateUI();
     this.updateIcon('paused');
@@ -165,6 +175,8 @@ class TimeTracker {
     const sessionDuration = currentTime - this.currentTask.startTime.getTime();
     this.currentTask.duration += sessionDuration;
     this.currentTask.endTime = new Date();
+    
+    console.log('Stopped task:', this.currentTask);
     
     this.tasks.unshift(this.currentTask);
     this.currentTask = null;
@@ -189,6 +201,8 @@ class TimeTracker {
     };
     
     this.pausedTask = null;
+    
+    console.log('Resumed task:', this.currentTask);
     
     await this.saveData();
     this.updateUI();
@@ -218,6 +232,11 @@ class TimeTracker {
     const currentTaskEl = document.getElementById('currentTask');
     const pausedTaskEl = document.getElementById('pausedTask');
     const startTaskEl = document.getElementById('startTask');
+    
+    console.log('Updating task states:', {
+      hasCurrentTask: !!this.currentTask,
+      hasPausedTask: !!this.pausedTask
+    });
     
     if (this.currentTask) {
       currentTaskEl.style.display = 'block';
@@ -255,7 +274,16 @@ class TimeTracker {
       const currentTime = Date.now();
       const sessionDuration = currentTime - this.currentTask.startTime.getTime();
       const totalDuration = this.currentTask.duration + sessionDuration;
-      document.getElementById('currentTaskTimer').textContent = this.formatDuration(totalDuration);
+      const formattedTime = this.formatDuration(totalDuration);
+      
+      console.log('Timer update:', {
+        sessionDuration,
+        totalDuration,
+        formattedTime,
+        startTime: this.currentTask.startTime
+      });
+      
+      document.getElementById('currentTaskTimer').textContent = formattedTime;
     }
   }
 
@@ -281,8 +309,8 @@ class TimeTracker {
     const now = new Date();
     const tasks = this.getTasksForPeriod(this.currentPeriod, now);
     
-    let totalTime = tasks.reduce((sum, task) => sum + (task.duration || 0), 0);
-    let billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + (task.duration || 0), 0);
+    let totalTime = tasks.reduce((sum, task) => sum + (Number(task.duration) || 0), 0);
+    let billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + (Number(task.duration) || 0), 0);
     
     // Add current task time if it's in the current period
     if (this.currentTask && this.isTaskInPeriod(this.currentTask.startTime, this.currentPeriod, now)) {
@@ -295,6 +323,14 @@ class TimeTracker {
         billableTime += currentTaskTotalDuration;
       }
     }
+    
+    console.log('Summary update:', {
+      period: this.currentPeriod,
+      tasksCount: tasks.length,
+      totalTime,
+      billableTime,
+      hasCurrentTask: !!this.currentTask
+    });
     
     document.getElementById('totalTime').textContent = this.formatDuration(totalTime);
     document.getElementById('billableTime').textContent = this.formatDuration(billableTime);
@@ -318,7 +354,7 @@ class TimeTracker {
             ${task.billable ? '<span class="billable-indicator">💰</span>' : ''}
           </div>
         </div>
-        <div class="task-item-duration">${this.formatDuration(task.duration || 0)}</div>
+        <div class="task-item-duration">${this.formatDuration(Number(task.duration) || 0)}</div>
       </div>
     `).join('');
     
@@ -404,7 +440,7 @@ class TimeTracker {
   }
 
   formatDuration(ms) {
-    if (!ms || isNaN(ms)) {
+    if (!ms || isNaN(ms) || ms < 0) {
       return '00:00:00';
     }
     
@@ -454,15 +490,21 @@ class TimeTracker {
 
   generateCSV(tasks) {
     const headers = ['Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)'];
-    const rows = tasks.map(task => [
-      `"${task.title.replace(/"/g, '""')}"`,
-      `"${task.customer}"`,
-      `"${task.project}"`,
-      task.billable ? 'Y' : 'N',
-      new Date(task.startTime).toISOString(),
-      task.endTime ? new Date(task.endTime).toISOString() : '',
-      Math.floor((task.duration || 0) / 1000)
-    ]);
+    const rows = tasks.map(task => {
+      // Ensure we have valid dates
+      const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
+      const endTime = task.endTime ? (task.endTime instanceof Date ? task.endTime : new Date(task.endTime)) : null;
+      
+      return [
+        `"${task.title.replace(/"/g, '""')}"`,
+        `"${task.customer}"`,
+        `"${task.project}"`,
+        task.billable ? 'Y' : 'N',
+        startTime.toISOString(),
+        endTime ? endTime.toISOString() : '',
+        Math.floor((Number(task.duration) || 0) / 1000)
+      ];
+    });
     
     return [headers, ...rows].map(row => row.join(',')).join('\n');
   }
