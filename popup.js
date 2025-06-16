@@ -41,17 +41,28 @@ class TimeTracker {
     this.projects = data.projects || ['General'];
     this.settings = { ...this.settings, ...data.settings };
 
-    // Convert date strings back to Date objects
-    if (this.currentTask && this.currentTask.startTime) {
-      this.currentTask.startTime = new Date(this.currentTask.startTime);
+    // Convert date strings back to Date objects and ensure proper format
+    if (this.currentTask) {
+      if (this.currentTask.startTime) {
+        this.currentTask.startTime = new Date(this.currentTask.startTime);
+      }
+      // Ensure duration is a number
+      this.currentTask.duration = this.currentTask.duration || 0;
     }
-    if (this.pausedTask && this.pausedTask.startTime) {
-      this.pausedTask.startTime = new Date(this.pausedTask.startTime);
+    
+    if (this.pausedTask) {
+      if (this.pausedTask.startTime) {
+        this.pausedTask.startTime = new Date(this.pausedTask.startTime);
+      }
+      // Ensure duration is a number
+      this.pausedTask.duration = this.pausedTask.duration || 0;
     }
+    
     this.tasks = this.tasks.map(task => ({
       ...task,
       startTime: new Date(task.startTime),
-      endTime: task.endTime ? new Date(task.endTime) : null
+      endTime: task.endTime ? new Date(task.endTime) : null,
+      duration: task.duration || 0
     }));
   }
 
@@ -135,7 +146,10 @@ class TimeTracker {
   async pauseTask() {
     if (!this.currentTask) return;
     
-    this.currentTask.duration += Date.now() - this.currentTask.startTime.getTime();
+    const currentTime = Date.now();
+    const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+    this.currentTask.duration += sessionDuration;
+    
     this.pausedTask = { ...this.currentTask };
     this.currentTask = null;
     
@@ -147,7 +161,9 @@ class TimeTracker {
   async stopTask() {
     if (!this.currentTask) return;
     
-    this.currentTask.duration += Date.now() - this.currentTask.startTime.getTime();
+    const currentTime = Date.now();
+    const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+    this.currentTask.duration += sessionDuration;
     this.currentTask.endTime = new Date();
     
     this.tasks.unshift(this.currentTask);
@@ -168,8 +184,8 @@ class TimeTracker {
     this.currentTask = {
       ...this.pausedTask,
       id: Date.now(),
-      startTime: new Date(),
-      duration: this.pausedTask.duration
+      startTime: new Date()
+      // Keep the existing duration from paused task
     };
     
     this.pausedTask = null;
@@ -235,8 +251,10 @@ class TimeTracker {
   }
 
   updateCurrentTaskTimer() {
-    if (this.currentTask) {
-      const totalDuration = Date.now() - this.currentTask.startTime.getTime() + this.currentTask.duration;
+    if (this.currentTask && this.currentTask.startTime) {
+      const currentTime = Date.now();
+      const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+      const totalDuration = this.currentTask.duration + sessionDuration;
       document.getElementById('currentTaskTimer').textContent = this.formatDuration(totalDuration);
     }
   }
@@ -263,15 +281,18 @@ class TimeTracker {
     const now = new Date();
     const tasks = this.getTasksForPeriod(this.currentPeriod, now);
     
-    let totalTime = tasks.reduce((sum, task) => sum + task.duration, 0);
-    let billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + task.duration, 0);
+    let totalTime = tasks.reduce((sum, task) => sum + (task.duration || 0), 0);
+    let billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + (task.duration || 0), 0);
     
     // Add current task time if it's in the current period
     if (this.currentTask && this.isTaskInPeriod(this.currentTask.startTime, this.currentPeriod, now)) {
-      const currentDuration = Date.now() - this.currentTask.startTime.getTime() + this.currentTask.duration;
-      totalTime += currentDuration;
+      const currentTime = Date.now();
+      const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+      const currentTaskTotalDuration = this.currentTask.duration + sessionDuration;
+      
+      totalTime += currentTaskTotalDuration;
       if (this.currentTask.billable) {
-        billableTime += currentDuration;
+        billableTime += currentTaskTotalDuration;
       }
     }
     
@@ -297,7 +318,7 @@ class TimeTracker {
             ${task.billable ? '<span class="billable-indicator">💰</span>' : ''}
           </div>
         </div>
-        <div class="task-item-duration">${this.formatDuration(task.duration)}</div>
+        <div class="task-item-duration">${this.formatDuration(task.duration || 0)}</div>
       </div>
     `).join('');
     
@@ -383,6 +404,10 @@ class TimeTracker {
   }
 
   formatDuration(ms) {
+    if (!ms || isNaN(ms)) {
+      return '00:00:00';
+    }
+    
     const seconds = Math.floor(ms / 1000);
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -436,7 +461,7 @@ class TimeTracker {
       task.billable ? 'Y' : 'N',
       new Date(task.startTime).toISOString(),
       task.endTime ? new Date(task.endTime).toISOString() : '',
-      Math.floor(task.duration / 1000)
+      Math.floor((task.duration || 0) / 1000)
     ]);
     
     return [headers, ...rows].map(row => row.join(',')).join('\n');
