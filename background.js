@@ -1,4 +1,3 @@
-// Background script for Time Tracker Pro - State Management
 class BackgroundService {
   constructor() {
     this.currentTask = null;
@@ -373,24 +372,33 @@ class BackgroundService {
     try {
       const { task, taskType } = data;
       
+      console.log('Background: Updating task:', { task, taskType });
+      
       if (taskType === 'current' && this.currentTask && this.currentTask.id === task.id) {
-        // Update current task (but preserve timing for active tasks)
+        // Update current task (preserve timing for active tasks, but allow manual duration override)
         this.currentTask = {
           ...this.currentTask,
           title: task.title,
           customer: task.customer,
           project: task.project,
-          billable: task.billable
-          // Don't update startTime or duration for active tasks
+          billable: task.billable,
+          // Allow duration override if provided
+          duration: task.duration !== undefined ? Number(task.duration) : this.currentTask.duration
         };
         
+        console.log('Background: Updated current task:', this.currentTask);
+        
       } else if (taskType === 'paused' && this.pausedTask && this.pausedTask.id === task.id) {
-        // Update paused task
+        // Update paused task - allow all fields to be updated
         this.pausedTask = {
           ...task,
-          startTime: new Date(task.startTime),
-          endTime: task.endTime ? new Date(task.endTime) : null
+          id: this.pausedTask.id, // Preserve original ID
+          startTime: task.startTime ? new Date(task.startTime) : this.pausedTask.startTime,
+          endTime: task.endTime ? new Date(task.endTime) : this.pausedTask.endTime,
+          duration: Number(task.duration) || 0
         };
+        
+        console.log('Background: Updated paused task:', this.pausedTask);
         
       } else if (taskType === 'completed') {
         // Update completed task
@@ -398,15 +406,25 @@ class BackgroundService {
         if (taskIndex !== -1) {
           this.tasks[taskIndex] = {
             ...task,
-            startTime: new Date(task.startTime),
-            endTime: task.endTime ? new Date(task.endTime) : null
+            startTime: task.startTime ? new Date(task.startTime) : this.tasks[taskIndex].startTime,
+            endTime: task.endTime ? new Date(task.endTime) : this.tasks[taskIndex].endTime,
+            duration: Number(task.duration) || 0
           };
+          
+          console.log('Background: Updated completed task:', this.tasks[taskIndex]);
+        } else {
+          console.warn('Background: Task not found for update:', task.id);
+          return { success: false, error: 'Task not found' };
         }
+      } else {
+        console.warn('Background: Invalid task type or task not found:', { taskType, taskId: task.id });
+        return { success: false, error: 'Invalid task type or task not found' };
       }
       
       await this.saveData();
       this.notifyPopupStateChange();
       
+      console.log('Background: Task update completed successfully');
       return { success: true };
     } catch (error) {
       console.error('Background: Error updating task:', error);
@@ -418,6 +436,8 @@ class BackgroundService {
     try {
       const { taskId, taskType } = data;
       
+      console.log('Background: Deleting task:', { taskId, taskType });
+      
       if (taskType === 'current' && this.currentTask && this.currentTask.id === taskId) {
         this.currentTask = null;
         this.updateIcon('idle');
@@ -427,12 +447,22 @@ class BackgroundService {
         this.updateIcon('idle');
         
       } else if (taskType === 'completed') {
+        const originalLength = this.tasks.length;
         this.tasks = this.tasks.filter(t => t.id !== taskId);
+        
+        if (this.tasks.length === originalLength) {
+          console.warn('Background: Task not found for deletion:', taskId);
+          return { success: false, error: 'Task not found' };
+        }
+      } else {
+        console.warn('Background: Invalid task type or task not found for deletion:', { taskType, taskId });
+        return { success: false, error: 'Invalid task type or task not found' };
       }
       
       await this.saveData();
       this.notifyPopupStateChange();
       
+      console.log('Background: Task deleted successfully');
       return { success: true };
     } catch (error) {
       console.error('Background: Error deleting task:', error);
