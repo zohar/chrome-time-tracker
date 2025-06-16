@@ -12,6 +12,7 @@ class TimeTracker {
       webhookEnabled: false
     };
     this.currentPeriod = 'today';
+    this.timerInterval = null;
     
     this.init();
   }
@@ -39,6 +40,19 @@ class TimeTracker {
     this.customers = data.customers || ['Default Client'];
     this.projects = data.projects || ['General'];
     this.settings = { ...this.settings, ...data.settings };
+
+    // Convert date strings back to Date objects
+    if (this.currentTask && this.currentTask.startTime) {
+      this.currentTask.startTime = new Date(this.currentTask.startTime);
+    }
+    if (this.pausedTask && this.pausedTask.startTime) {
+      this.pausedTask.startTime = new Date(this.pausedTask.startTime);
+    }
+    this.tasks = this.tasks.map(task => ({
+      ...task,
+      startTime: new Date(task.startTime),
+      endTime: task.endTime ? new Date(task.endTime) : null
+    }));
   }
 
   async saveData() {
@@ -73,7 +87,7 @@ class TimeTracker {
     });
     
     // Export
-    document.getElementById('exportBtn').addEventListener('click', () => this.showExportDialog());
+    document.getElementById('exportBtn').addEventListener('click', () => this.exportTasks());
     
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => this.handleKeyboard(e));
@@ -115,6 +129,7 @@ class TimeTracker {
     // Clear form
     document.getElementById('taskTitle').value = '';
     document.getElementById('billableToggle').classList.remove('active');
+    this.validateForm();
   }
 
   async pauseTask() {
@@ -174,6 +189,10 @@ class TimeTracker {
     await this.saveData();
     this.updateUI();
     this.updateIcon('idle');
+    
+    if (this.settings.webhookEnabled && this.settings.webhookUrl) {
+      this.sendWebhook(this.tasks[0]);
+    }
   }
 
   updateUI() {
@@ -196,7 +215,10 @@ class TimeTracker {
       document.getElementById('currentTaskTitle').textContent = this.currentTask.title;
       document.getElementById('currentTaskCustomer').textContent = this.currentTask.customer;
       document.getElementById('currentTaskProject').textContent = this.currentTask.project;
-      document.getElementById('currentTaskBillable').style.display = this.currentTask.billable ? 'inline' : 'none';
+      document.getElementById('currentTaskBillable').style.display = this.currentTask.billable ? 'inline-flex' : 'none';
+      
+      // Update timer immediately
+      this.updateCurrentTaskTimer();
       
     } else if (this.pausedTask) {
       currentTaskEl.style.display = 'none';
@@ -206,13 +228,20 @@ class TimeTracker {
       document.getElementById('pausedTaskTitle').textContent = this.pausedTask.title;
       document.getElementById('pausedTaskCustomer').textContent = this.pausedTask.customer;
       document.getElementById('pausedTaskProject').textContent = this.pausedTask.project;
-      document.getElementById('pausedTaskBillable').style.display = this.pausedTask.billable ? 'inline' : 'none';
+      document.getElementById('pausedTaskBillable').style.display = this.pausedTask.billable ? 'inline-flex' : 'none';
       document.getElementById('pausedTaskTimer').textContent = this.formatDuration(this.pausedTask.duration);
       
     } else {
       currentTaskEl.style.display = 'none';
       pausedTaskEl.style.display = 'none';
       startTaskEl.style.display = 'block';
+    }
+  }
+
+  updateCurrentTaskTimer() {
+    if (this.currentTask) {
+      const totalDuration = Date.now() - this.currentTask.startTime.getTime() + this.currentTask.duration;
+      document.getElementById('currentTaskTimer').textContent = this.formatDuration(totalDuration);
     }
   }
 
@@ -238,10 +267,11 @@ class TimeTracker {
     const now = new Date();
     const tasks = this.getTasksForPeriod(this.currentPeriod, now);
     
-    const totalTime = tasks.reduce((sum, task) => sum + task.duration, 0);
-    const billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + task.duration, 0);
+    let totalTime = tasks.reduce((sum, task) => sum + task.duration, 0);
+    let billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + task.duration, 0);
     
-    if (this.currentTask && this.currentPeriod === 'today' && this.isToday(this.currentTask.startTime)) {
+    // Add current task time if it's in the current period
+    if (this.currentTask && this.isTaskInPeriod(this.currentTask.startTime, this.currentPeriod, now)) {
       const currentDuration = Date.now() - this.currentTask.startTime.getTime() + this.currentTask.duration;
       totalTime += currentDuration;
       if (this.currentTask.billable) {
@@ -268,7 +298,7 @@ class TimeTracker {
           <div class="task-item-title">${task.title}</div>
           <div class="task-item-meta">
             ${task.customer} • ${task.project}
-            ${task.billable ? '<span class="billable-indicator">$</span>' : ''}
+            ${task.billable ? '<span class="billable-indicator">💰</span>' : ''}
           </div>
         </div>
         <div class="task-item-duration">${this.formatDuration(task.duration)}</div>
@@ -285,10 +315,14 @@ class TimeTracker {
   }
 
   startTimer() {
-    setInterval(() => {
+    // Clear any existing timer
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+    }
+    
+    this.timerInterval = setInterval(() => {
       if (this.currentTask) {
-        const totalDuration = Date.now() - this.currentTask.startTime.getTime() + this.currentTask.duration;
-        document.getElementById('currentTaskTimer').textContent = this.formatDuration(totalDuration);
+        this.updateCurrentTaskTimer();
         this.updateSummary();
       }
     }, 1000);
@@ -304,6 +338,19 @@ class TimeTracker {
         return this.tasks.filter(task => this.isThisMonth(task.startTime, date));
       default:
         return [];
+    }
+  }
+
+  isTaskInPeriod(taskDate, period, referenceDate) {
+    switch (period) {
+      case 'today':
+        return this.isToday(taskDate);
+      case 'week':
+        return this.isThisWeek(taskDate, referenceDate);
+      case 'month':
+        return this.isThisMonth(taskDate, referenceDate);
+      default:
+        return false;
     }
   }
 
@@ -364,9 +411,39 @@ class TimeTracker {
     console.log('Edit task:', taskId);
   }
 
-  showExportDialog() {
-    // This would show export options dialog
-    console.log('Show export dialog');
+  exportTasks() {
+    if (this.tasks.length === 0) {
+      alert('No tasks to export.');
+      return;
+    }
+
+    const csvContent = this.generateCSV(this.tasks);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `time-tracker-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  generateCSV(tasks) {
+    const headers = ['Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)'];
+    const rows = tasks.map(task => [
+      `"${task.title.replace(/"/g, '""')}"`,
+      `"${task.customer}"`,
+      `"${task.project}"`,
+      task.billable ? 'Y' : 'N',
+      new Date(task.startTime).toISOString(),
+      task.endTime ? new Date(task.endTime).toISOString() : '',
+      Math.floor(task.duration / 1000)
+    ]);
+    
+    return [headers, ...rows].map(row => row.join(',')).join('\n');
   }
 
   handleKeyboard(e) {
