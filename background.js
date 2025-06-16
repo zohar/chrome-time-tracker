@@ -1,3 +1,4 @@
+// Background script for Time Tracker Pro - State Management
 class BackgroundService {
   constructor() {
     this.currentTask = null;
@@ -13,17 +14,28 @@ class BackgroundService {
       webhookEnabled: false
     };
     this.timerInterval = null;
+    this.isInitialized = false;
     
     this.init();
   }
 
   async init() {
     console.log('Background service initializing...');
-    await this.loadData();
-    this.setupMessageListener();
-    this.startTimer();
-    this.updateIcon('idle');
-    console.log('Background service initialized');
+    try {
+      await this.loadData();
+      this.setupMessageListener();
+      this.startTimer();
+      this.updateIcon('idle');
+      this.isInitialized = true;
+      console.log('Background service initialized successfully');
+    } catch (error) {
+      console.error('Background service initialization failed:', error);
+      // Try to initialize with defaults if loading fails
+      this.isInitialized = true;
+      this.setupMessageListener();
+      this.startTimer();
+      this.updateIcon('idle');
+    }
   }
 
   async loadData() {
@@ -101,6 +113,7 @@ class BackgroundService {
       
     } catch (error) {
       console.error('Background: Error loading data:', error);
+      throw error; // Re-throw to be handled by init()
     }
   }
 
@@ -147,6 +160,16 @@ class BackgroundService {
   setupMessageListener() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log('Background: Received message:', message);
+      
+      // Ensure we're initialized before handling messages
+      if (!this.isInitialized && message.action !== 'getInitialState') {
+        console.warn('Background: Service not initialized, deferring message');
+        setTimeout(() => {
+          this.setupMessageListener();
+        }, 100);
+        sendResponse({ success: false, error: 'Service initializing, please retry' });
+        return false;
+      }
       
       // Handle async operations properly
       const handleAsync = async () => {
@@ -580,8 +603,8 @@ class BackgroundService {
       
       return [
         `"${task.title.replace(/"/g, '""')}"`,
-        `"${task.customer}"`,
-        `"${task.project}"`,
+        `"${task.customer || ''}"`,
+        `"${task.project || ''}"`,
         task.billable ? 'Y' : 'N',
         isNaN(startTime.getTime()) ? '' : startTime.toISOString(),
         endTime && !isNaN(endTime.getTime()) ? endTime.toISOString() : '',
@@ -687,4 +710,21 @@ class BackgroundService {
 }
 
 // Initialize background service
-new BackgroundService();
+console.log('Background script loading...');
+const backgroundService = new BackgroundService();
+
+// Handle extension startup
+chrome.runtime.onStartup.addListener(() => {
+  console.log('Extension startup detected');
+  if (!backgroundService.isInitialized) {
+    backgroundService.init();
+  }
+});
+
+// Handle extension installation
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('Extension installed/updated');
+  if (!backgroundService.isInitialized) {
+    backgroundService.init();
+  }
+});
