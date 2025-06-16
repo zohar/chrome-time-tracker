@@ -1,114 +1,74 @@
 class TimeTracker {
   constructor() {
-    this.currentTask = null;
-    this.pausedTask = null;
-    this.tasks = [];
-    this.customers = [];
-    this.projects = [];
-    this.settings = {
-      defaultCustomer: '',
-      defaultProject: '',
-      webhookUrl: '',
-      webhookEnabled: false
-    };
+    // UI-only state - no persistent data stored here
     this.currentPeriod = 'today';
-    this.timerInterval = null;
+    this.state = {
+      currentTask: null,
+      pausedTask: null,
+      tasks: [],
+      customers: ['Default Client'],
+      projects: ['General'],
+      settings: {
+        defaultCustomer: '',
+        defaultProject: '',
+        webhookUrl: '',
+        webhookEnabled: false
+      }
+    };
     
-    console.log('TimeTracker constructor called');
+    console.log('TimeTracker popup constructor called');
     this.init();
   }
 
   async init() {
     try {
-      console.log('Initializing TimeTracker...');
-      await this.loadData();
+      console.log('Initializing TimeTracker popup...');
+      await this.loadInitialState();
       this.setupEventListeners();
+      this.setupMessageListener();
       this.updateUI();
-      this.startTimer();
-      console.log('TimeTracker initialized successfully');
+      console.log('TimeTracker popup initialized successfully');
     } catch (error) {
-      console.error('Error initializing TimeTracker:', error);
+      console.error('Error initializing TimeTracker popup:', error);
     }
   }
 
-  async loadData() {
+  async loadInitialState() {
     try {
-      console.log('Loading data from storage...');
-      const data = await chrome.storage.local.get([
-        'currentTask',
-        'pausedTask', 
-        'tasks',
-        'customers',
-        'projects',
-        'settings'
-      ]);
+      console.log('Popup: Requesting initial state from background...');
       
-      console.log('Raw data from storage:', data);
-      
-      this.currentTask = data.currentTask || null;
-      this.pausedTask = data.pausedTask || null;
-      this.tasks = data.tasks || [];
-      this.customers = data.customers || ['Default Client'];
-      this.projects = data.projects || ['General'];
-      this.settings = { ...this.settings, ...data.settings };
-
-      // Convert date strings back to Date objects and ensure proper format
-      if (this.currentTask) {
-        console.log('Processing current task:', this.currentTask);
-        if (this.currentTask.startTime) {
-          this.currentTask.startTime = new Date(this.currentTask.startTime);
-        }
-        // Ensure duration is a number
-        this.currentTask.duration = Number(this.currentTask.duration) || 0;
-        console.log('Processed current task:', this.currentTask);
-      }
-      
-      if (this.pausedTask) {
-        console.log('Processing paused task:', this.pausedTask);
-        if (this.pausedTask.startTime) {
-          this.pausedTask.startTime = new Date(this.pausedTask.startTime);
-        }
-        // Ensure duration is a number
-        this.pausedTask.duration = Number(this.pausedTask.duration) || 0;
-        console.log('Processed paused task:', this.pausedTask);
-      }
-      
-      this.tasks = this.tasks.map(task => {
-        const processedTask = {
-          ...task,
-          startTime: new Date(task.startTime),
-          endTime: task.endTime ? new Date(task.endTime) : null,
-          duration: Number(task.duration) || 0
-        };
-        return processedTask;
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getInitialState' }, resolve);
       });
-
-      console.log('Final loaded data:', {
-        currentTask: this.currentTask,
-        pausedTask: this.pausedTask,
-        tasksCount: this.tasks.length,
-        customers: this.customers,
-        projects: this.projects
-      });
+      
+      if (response && response.success) {
+        this.state = response.data;
+        console.log('Popup: Received initial state:', this.state);
+      } else {
+        console.error('Popup: Failed to get initial state:', response);
+      }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Popup: Error loading initial state:', error);
     }
   }
 
-  async saveData() {
-    try {
-      await chrome.storage.local.set({
-        currentTask: this.currentTask,
-        pausedTask: this.pausedTask,
-        tasks: this.tasks,
-        customers: this.customers,
-        projects: this.projects,
-        settings: this.settings
-      });
-      console.log('Data saved successfully');
-    } catch (error) {
-      console.error('Error saving data:', error);
-    }
+  setupMessageListener() {
+    // Listen for state updates from background script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('Popup: Received message:', message);
+      
+      switch (message.action) {
+        case 'stateChanged':
+          this.state = message.data;
+          this.updateUI();
+          break;
+          
+        case 'timerUpdate':
+          this.updateCurrentTaskTimer(message.data.totalDuration, message.data.formattedTime);
+          this.updateSummary();
+          break;
+      }
+    });
   }
 
   setupEventListeners() {
@@ -192,32 +152,31 @@ class TimeTracker {
       if (!titleInput) return;
       
       const title = titleInput.value.trim();
-      const customer = customerSelect ? customerSelect.value || this.customers[0] : this.customers[0];
-      const project = projectSelect ? projectSelect.value || this.projects[0] : this.projects[0];
+      const customer = customerSelect ? customerSelect.value || this.state.customers[0] : this.state.customers[0];
+      const project = projectSelect ? projectSelect.value || this.state.projects[0] : this.state.projects[0];
       const billable = billableToggle ? billableToggle.classList.contains('active') : false;
       
       if (!title) return;
       
-      this.currentTask = {
-        id: Date.now(),
-        title,
-        customer,
-        project,
-        billable,
-        startTime: new Date(),
-        duration: 0
-      };
+      console.log('Popup: Starting task with data:', { title, customer, project, billable });
       
-      console.log('Started task:', this.currentTask);
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          action: 'startTask',
+          data: { title, customer, project, billable }
+        }, resolve);
+      });
       
-      await this.saveData();
-      this.updateUI();
-      this.updateIcon('active');
-      
-      // Clear form
-      titleInput.value = '';
-      if (billableToggle) billableToggle.classList.remove('active');
-      this.validateForm();
+      if (response && response.success) {
+        console.log('Popup: Task started successfully');
+        
+        // Clear form
+        titleInput.value = '';
+        if (billableToggle) billableToggle.classList.remove('active');
+        this.validateForm();
+      } else {
+        console.error('Popup: Failed to start task:', response);
+      }
     } catch (error) {
       console.error('Error starting task:', error);
     }
@@ -225,20 +184,15 @@ class TimeTracker {
 
   async pauseTask() {
     try {
-      if (!this.currentTask) return;
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'pauseTask' }, resolve);
+      });
       
-      const currentTime = Date.now();
-      const sessionDuration = currentTime - this.currentTask.startTime.getTime();
-      this.currentTask.duration += sessionDuration;
-      
-      this.pausedTask = { ...this.currentTask };
-      this.currentTask = null;
-      
-      console.log('Paused task:', this.pausedTask);
-      
-      await this.saveData();
-      this.updateUI();
-      this.updateIcon('paused');
+      if (response && response.success) {
+        console.log('Popup: Task paused successfully');
+      } else {
+        console.error('Popup: Failed to pause task:', response);
+      }
     } catch (error) {
       console.error('Error pausing task:', error);
     }
@@ -246,24 +200,14 @@ class TimeTracker {
 
   async stopTask() {
     try {
-      if (!this.currentTask) return;
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'stopTask' }, resolve);
+      });
       
-      const currentTime = Date.now();
-      const sessionDuration = currentTime - this.currentTask.startTime.getTime();
-      this.currentTask.duration += sessionDuration;
-      this.currentTask.endTime = new Date();
-      
-      console.log('Stopped task:', this.currentTask);
-      
-      this.tasks.unshift(this.currentTask);
-      this.currentTask = null;
-      
-      await this.saveData();
-      this.updateUI();
-      this.updateIcon('idle');
-      
-      if (this.settings.webhookEnabled && this.settings.webhookUrl) {
-        this.sendWebhook(this.tasks[0]);
+      if (response && response.success) {
+        console.log('Popup: Task stopped successfully');
+      } else {
+        console.error('Popup: Failed to stop task:', response);
       }
     } catch (error) {
       console.error('Error stopping task:', error);
@@ -272,22 +216,15 @@ class TimeTracker {
 
   async resumeTask() {
     try {
-      if (!this.pausedTask) return;
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'resumeTask' }, resolve);
+      });
       
-      this.currentTask = {
-        ...this.pausedTask,
-        id: Date.now(),
-        startTime: new Date()
-        // Keep the existing duration from paused task
-      };
-      
-      this.pausedTask = null;
-      
-      console.log('Resumed task:', this.currentTask);
-      
-      await this.saveData();
-      this.updateUI();
-      this.updateIcon('active');
+      if (response && response.success) {
+        console.log('Popup: Task resumed successfully');
+      } else {
+        console.error('Popup: Failed to resume task:', response);
+      }
     } catch (error) {
       console.error('Error resuming task:', error);
     }
@@ -295,15 +232,15 @@ class TimeTracker {
 
   async stopPausedTask() {
     try {
-      if (!this.pausedTask) return;
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'stopPausedTask' }, resolve);
+      });
       
-      this.pausedTask.endTime = new Date();
-      this.tasks.unshift(this.pausedTask);
-      this.pausedTask = null;
-      
-      await this.saveData();
-      this.updateUI();
-      this.updateIcon('idle');
+      if (response && response.success) {
+        console.log('Popup: Paused task stopped successfully');
+      } else {
+        console.error('Popup: Failed to stop paused task:', response);
+      }
     } catch (error) {
       console.error('Error stopping paused task:', error);
     }
@@ -329,11 +266,11 @@ class TimeTracker {
       const startTaskEl = document.getElementById('startTask');
       
       console.log('Updating task states:', {
-        hasCurrentTask: !!this.currentTask,
-        hasPausedTask: !!this.pausedTask
+        hasCurrentTask: !!this.state.currentTask,
+        hasPausedTask: !!this.state.pausedTask
       });
       
-      if (this.currentTask) {
+      if (this.state.currentTask) {
         if (currentTaskEl) currentTaskEl.style.display = 'block';
         if (pausedTaskEl) pausedTaskEl.style.display = 'none';
         if (startTaskEl) startTaskEl.style.display = 'none';
@@ -343,15 +280,15 @@ class TimeTracker {
         const projectEl = document.getElementById('currentTaskProject');
         const billableEl = document.getElementById('currentTaskBillable');
         
-        if (titleEl) titleEl.textContent = this.currentTask.title;
-        if (customerEl) customerEl.textContent = this.currentTask.customer;
-        if (projectEl) projectEl.textContent = this.currentTask.project;
-        if (billableEl) billableEl.style.display = this.currentTask.billable ? 'inline-flex' : 'none';
+        if (titleEl) titleEl.textContent = this.state.currentTask.title;
+        if (customerEl) customerEl.textContent = this.state.currentTask.customer;
+        if (projectEl) projectEl.textContent = this.state.currentTask.project;
+        if (billableEl) billableEl.style.display = this.state.currentTask.billable ? 'inline-flex' : 'none';
         
         // Update timer immediately
-        this.updateCurrentTaskTimer();
+        this.updateCurrentTaskTimerFromState();
         
-      } else if (this.pausedTask) {
+      } else if (this.state.pausedTask) {
         if (currentTaskEl) currentTaskEl.style.display = 'none';
         if (pausedTaskEl) pausedTaskEl.style.display = 'block';
         if (startTaskEl) startTaskEl.style.display = 'none';
@@ -362,11 +299,11 @@ class TimeTracker {
         const billableEl = document.getElementById('pausedTaskBillable');
         const timerEl = document.getElementById('pausedTaskTimer');
         
-        if (titleEl) titleEl.textContent = this.pausedTask.title;
-        if (customerEl) customerEl.textContent = this.pausedTask.customer;
-        if (projectEl) projectEl.textContent = this.pausedTask.project;
-        if (billableEl) billableEl.style.display = this.pausedTask.billable ? 'inline-flex' : 'none';
-        if (timerEl) timerEl.textContent = this.formatDuration(this.pausedTask.duration);
+        if (titleEl) titleEl.textContent = this.state.pausedTask.title;
+        if (customerEl) customerEl.textContent = this.state.pausedTask.customer;
+        if (projectEl) projectEl.textContent = this.state.pausedTask.project;
+        if (billableEl) billableEl.style.display = this.state.pausedTask.billable ? 'inline-flex' : 'none';
+        if (timerEl) timerEl.textContent = this.formatDuration(this.state.pausedTask.duration);
         
       } else {
         if (currentTaskEl) currentTaskEl.style.display = 'none';
@@ -378,25 +315,30 @@ class TimeTracker {
     }
   }
 
-  updateCurrentTaskTimer() {
+  updateCurrentTaskTimerFromState() {
     try {
-      if (this.currentTask && this.currentTask.startTime) {
+      if (this.state.currentTask && this.state.currentTask.startTime) {
         const currentTime = Date.now();
-        const sessionDuration = currentTime - this.currentTask.startTime.getTime();
-        const totalDuration = this.currentTask.duration + sessionDuration;
+        const startTime = new Date(this.state.currentTask.startTime);
+        const sessionDuration = currentTime - startTime.getTime();
+        const totalDuration = this.state.currentTask.duration + sessionDuration;
         const formattedTime = this.formatDuration(totalDuration);
-        
-        console.log('Timer update:', {
-          sessionDuration,
-          totalDuration,
-          formattedTime,
-          startTime: this.currentTask.startTime
-        });
         
         const timerElement = document.getElementById('currentTaskTimer');
         if (timerElement) {
           timerElement.textContent = formattedTime;
         }
+      }
+    } catch (error) {
+      console.error('Error updating current task timer from state:', error);
+    }
+  }
+
+  updateCurrentTaskTimer(totalDuration, formattedTime) {
+    try {
+      const timerElement = document.getElementById('currentTaskTimer');
+      if (timerElement) {
+        timerElement.textContent = formattedTime;
       }
     } catch (error) {
       console.error('Error updating current task timer:', error);
@@ -410,19 +352,19 @@ class TimeTracker {
       
       if (customerSelect) {
         customerSelect.innerHTML = '<option value="">Select Customer</option>' +
-          this.customers.map(c => `<option value="${c}">${c}</option>`).join('');
+          this.state.customers.map(c => `<option value="${c}">${c}</option>`).join('');
         
-        if (this.settings.defaultCustomer) {
-          customerSelect.value = this.settings.defaultCustomer;
+        if (this.state.settings.defaultCustomer) {
+          customerSelect.value = this.state.settings.defaultCustomer;
         }
       }
       
       if (projectSelect) {
         projectSelect.innerHTML = '<option value="">Select Project</option>' +
-          this.projects.map(p => `<option value="${p}">${p}</option>`).join('');
+          this.state.projects.map(p => `<option value="${p}">${p}</option>`).join('');
         
-        if (this.settings.defaultProject) {
-          projectSelect.value = this.settings.defaultProject;
+        if (this.state.settings.defaultProject) {
+          projectSelect.value = this.state.settings.defaultProject;
         }
       }
     } catch (error) {
@@ -439,13 +381,14 @@ class TimeTracker {
       let billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + (Number(task.duration) || 0), 0);
       
       // Add current task time if it's in the current period
-      if (this.currentTask && this.isTaskInPeriod(this.currentTask.startTime, this.currentPeriod, now)) {
+      if (this.state.currentTask && this.isTaskInPeriod(this.state.currentTask.startTime, this.currentPeriod, now)) {
         const currentTime = Date.now();
-        const sessionDuration = currentTime - this.currentTask.startTime.getTime();
-        const currentTaskTotalDuration = this.currentTask.duration + sessionDuration;
+        const startTime = new Date(this.state.currentTask.startTime);
+        const sessionDuration = currentTime - startTime.getTime();
+        const currentTaskTotalDuration = this.state.currentTask.duration + sessionDuration;
         
         totalTime += currentTaskTotalDuration;
-        if (this.currentTask.billable) {
+        if (this.state.currentTask.billable) {
           billableTime += currentTaskTotalDuration;
         }
       }
@@ -455,7 +398,7 @@ class TimeTracker {
         tasksCount: tasks.length,
         totalTime,
         billableTime,
-        hasCurrentTask: !!this.currentTask
+        hasCurrentTask: !!this.state.currentTask
       });
       
       const totalTimeEl = document.getElementById('totalTime');
@@ -473,7 +416,7 @@ class TimeTracker {
       const taskList = document.getElementById('taskList');
       if (!taskList) return;
       
-      const recentTasks = this.tasks.slice(0, 10);
+      const recentTasks = this.state.tasks.slice(0, 10);
       
       if (recentTasks.length === 0) {
         taskList.innerHTML = '<div class="empty-state">No tasks yet. Start tracking your first task!</div>';
@@ -505,33 +448,14 @@ class TimeTracker {
     }
   }
 
-  startTimer() {
-    try {
-      // Clear any existing timer
-      if (this.timerInterval) {
-        clearInterval(this.timerInterval);
-      }
-      
-      console.log('Starting timer...');
-      this.timerInterval = setInterval(() => {
-        if (this.currentTask) {
-          this.updateCurrentTaskTimer();
-          this.updateSummary();
-        }
-      }, 1000);
-    } catch (error) {
-      console.error('Error starting timer:', error);
-    }
-  }
-
   getTasksForPeriod(period, date) {
     switch (period) {
       case 'today':
-        return this.tasks.filter(task => this.isToday(task.startTime));
+        return this.state.tasks.filter(task => this.isToday(task.startTime));
       case 'week':
-        return this.tasks.filter(task => this.isThisWeek(task.startTime, date));
+        return this.state.tasks.filter(task => this.isThisWeek(task.startTime, date));
       case 'month':
-        return this.tasks.filter(task => this.isThisMonth(task.startTime, date));
+        return this.state.tasks.filter(task => this.isThisMonth(task.startTime, date));
       default:
         return [];
     }
@@ -600,17 +524,6 @@ class TimeTracker {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
-  updateIcon(state) {
-    try {
-      chrome.runtime.sendMessage({
-        action: 'updateIcon',
-        state: state
-      });
-    } catch (error) {
-      console.error('Error updating icon:', error);
-    }
-  }
-
   openSettings() {
     try {
       chrome.runtime.openOptionsPage();
@@ -624,49 +537,34 @@ class TimeTracker {
     console.log('Edit task:', taskId);
   }
 
-  exportTasks() {
+  async exportTasks() {
     try {
-      if (this.tasks.length === 0) {
-        alert('No tasks to export.');
-        return;
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'exportTasks' }, resolve);
+      });
+      
+      if (response && response.success) {
+        const csvContent = response.data;
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `time-tracker-export-${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('Popup: Tasks exported successfully');
+      } else {
+        console.error('Popup: Failed to export tasks:', response);
+        alert(response?.error || 'Failed to export tasks');
       }
-
-      const csvContent = this.generateCSV(this.tasks);
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `time-tracker-export-${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     } catch (error) {
       console.error('Error exporting tasks:', error);
     }
-  }
-
-  generateCSV(tasks) {
-    const headers = ['Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)'];
-    const rows = tasks.map(task => {
-      // Ensure we have valid dates
-      const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
-      const endTime = task.endTime ? (task.endTime instanceof Date ? task.endTime : new Date(task.endTime)) : null;
-      
-      return [
-        `"${task.title.replace(/"/g, '""')}"`,
-        `"${task.customer}"`,
-        `"${task.project}"`,
-        task.billable ? 'Y' : 'N',
-        startTime.toISOString(),
-        endTime ? endTime.toISOString() : '',
-        Math.floor((Number(task.duration) || 0) / 1000)
-      ];
-    });
-    
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
   }
 
   handleKeyboard(e) {
@@ -675,25 +573,25 @@ class TimeTracker {
         switch (e.key) {
           case 'j':
             e.preventDefault();
-            if (this.currentTask) {
+            if (this.state.currentTask) {
               this.pauseTask();
-            } else if (this.pausedTask) {
+            } else if (this.state.pausedTask) {
               this.resumeTask();
             }
             break;
           case 'k':
             e.preventDefault();
-            if (this.currentTask) {
+            if (this.state.currentTask) {
               this.stopTask();
-            } else if (this.pausedTask) {
+            } else if (this.state.pausedTask) {
               this.stopPausedTask();
             }
             break;
           case 'Enter':
             e.preventDefault();
-            if (!this.currentTask && !this.pausedTask) {
+            if (!this.state.currentTask && !this.state.pausedTask) {
               const startBtn = document.getElementById('startBtn');
-              if (startBtn) startBtn.click();
+              if (startBtn && !startBtn.disabled) startBtn.click();
             }
             break;
         }
@@ -702,39 +600,16 @@ class TimeTracker {
       console.error('Error handling keyboard:', error);
     }
   }
-
-  async sendWebhook(task) {
-    try {
-      await fetch(this.settings.webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: task.id,
-          title: task.title,
-          customer: task.customer,
-          project: task.project,
-          billable: task.billable,
-          startTime: task.startTime,
-          endTime: task.endTime,
-          duration: task.duration
-        })
-      });
-    } catch (error) {
-      console.error('Webhook failed:', error);
-    }
-  }
 }
 
 // Initialize when DOM is ready
-console.log('Script loaded, waiting for DOM...');
+console.log('Popup script loaded, waiting for DOM...');
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM loaded, initializing TimeTracker...');
+  console.log('DOM loaded, initializing TimeTracker popup...');
   try {
     new TimeTracker();
   } catch (error) {
-    console.error('Failed to initialize TimeTracker:', error);
+    console.error('Failed to initialize TimeTracker popup:', error);
   }
 });
 
@@ -742,10 +617,10 @@ document.addEventListener('DOMContentLoaded', () => {
 if (document.readyState === 'loading') {
   console.log('DOM is still loading, waiting...');
 } else {
-  console.log('DOM already loaded, initializing immediately...');
+  console.log('DOM already loaded, initializing popup immediately...');
   try {
     new TimeTracker();
   } catch (error) {
-    console.error('Failed to initialize TimeTracker immediately:', error);
+    console.error('Failed to initialize TimeTracker popup immediately:', error);
   }
 }

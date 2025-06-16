@@ -34,10 +34,16 @@ class SettingsManager {
   }
 
   async saveData() {
-    await chrome.storage.local.set({
-      settings: this.settings,
-      customers: this.customers,
-      projects: this.projects
+    // Send settings update to background script
+    await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        action: 'updateSettings',
+        data: {
+          settings: this.settings,
+          customers: this.customers,
+          projects: this.projects
+        }
+      }, resolve);
     });
   }
 
@@ -167,39 +173,54 @@ class SettingsManager {
     }
   }
 
-  exportAllData() {
-    if (this.tasks.length === 0) {
-      this.showSaveStatus('No data to export.', 'error');
-      return;
-    }
+  async exportAllData() {
+    try {
+      // Get fresh data from storage
+      const data = await chrome.storage.local.get(['tasks']);
+      const tasks = data.tasks || [];
+      
+      if (tasks.length === 0) {
+        this.showSaveStatus('No data to export.', 'error');
+        return;
+      }
 
-    const csvContent = this.generateCSV(this.tasks);
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `time-tracker-export-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    this.showSaveStatus('Data exported successfully!', 'success');
+      const csvContent = this.generateCSV(tasks);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `time-tracker-export-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      this.showSaveStatus('Data exported successfully!', 'success');
+    } catch (error) {
+      console.error('Export failed:', error);
+      this.showSaveStatus(`Export failed: ${error.message}`, 'error');
+    }
   }
 
   generateCSV(tasks) {
     const headers = ['Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)'];
-    const rows = tasks.map(task => [
-      `"${task.title.replace(/"/g, '""')}"`,
-      `"${task.customer}"`,
-      `"${task.project}"`,
-      task.billable ? 'Y' : 'N',
-      new Date(task.startTime).toISOString(),
-      task.endTime ? new Date(task.endTime).toISOString() : '',
-      Math.floor(task.duration / 1000)
-    ]);
+    const rows = tasks.map(task => {
+      // Ensure we have valid dates
+      const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
+      const endTime = task.endTime ? (task.endTime instanceof Date ? task.endTime : new Date(task.endTime)) : null;
+      
+      return [
+        `"${task.title.replace(/"/g, '""')}"`,
+        `"${task.customer}"`,
+        `"${task.project}"`,
+        task.billable ? 'Y' : 'N',
+        startTime.toISOString(),
+        endTime ? endTime.toISOString() : '',
+        Math.floor((Number(task.duration) || 0) / 1000)
+      ];
+    });
     
     return [headers, ...rows].map(row => row.join(',')).join('\n');
   }
@@ -245,9 +266,13 @@ class SettingsManager {
         throw new Error('No valid tasks found in the CSV file.');
       }
       
-      // Merge with existing tasks
-      this.tasks = [...importedTasks, ...this.tasks];
-      await chrome.storage.local.set({ tasks: this.tasks });
+      // Get current tasks and merge
+      const currentData = await chrome.storage.local.get(['tasks']);
+      const currentTasks = currentData.tasks || [];
+      const allTasks = [...importedTasks, ...currentTasks];
+      
+      // Save directly to storage (background script will pick up changes)
+      await chrome.storage.local.set({ tasks: allTasks });
       
       this.showSaveStatus(`Successfully imported ${importedTasks.length} tasks.`, 'success');
       
