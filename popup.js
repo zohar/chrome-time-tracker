@@ -523,6 +523,9 @@ class TimeTracker {
       if (response && response.success) {
         console.log('Popup: Task updated successfully');
         this.closeEditModal();
+        // Force UI update to reflect changes immediately
+        await this.loadInitialState();
+        this.updateUI();
       } else {
         console.error('Popup: Failed to update task:', response);
         alert('Failed to update task. Please try again.');
@@ -553,6 +556,9 @@ class TimeTracker {
       if (response && response.success) {
         console.log('Popup: Task deleted successfully');
         this.closeEditModal();
+        // Force UI update to reflect changes immediately
+        await this.loadInitialState();
+        this.updateUI();
       } else {
         console.error('Popup: Failed to delete task:', response);
         alert('Failed to delete task. Please try again.');

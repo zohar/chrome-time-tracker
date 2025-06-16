@@ -458,6 +458,11 @@ body {
   margin-top: 4px;
 }
 
+/* Smaller font size for datetime inputs */
+input[type="datetime-local"] {
+  font-size: 12px !important;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
