@@ -46,25 +46,49 @@ class BackgroundService {
       this.projects = data.projects || ['General'];
       this.settings = { ...this.settings, ...data.settings };
 
-      // Convert date strings back to Date objects
+      // Convert date strings back to Date objects with validation
       if (this.currentTask && this.currentTask.startTime) {
-        this.currentTask.startTime = new Date(this.currentTask.startTime);
-        this.currentTask.duration = Number(this.currentTask.duration) || 0;
-        console.log('Background: Restored current task:', this.currentTask);
+        const startTime = new Date(this.currentTask.startTime);
+        if (isNaN(startTime.getTime())) {
+          console.warn('Background: Invalid startTime for currentTask, resetting');
+          this.currentTask = null;
+        } else {
+          this.currentTask.startTime = startTime;
+          this.currentTask.duration = Number(this.currentTask.duration) || 0;
+          console.log('Background: Restored current task:', this.currentTask);
+        }
       }
       
       if (this.pausedTask && this.pausedTask.startTime) {
-        this.pausedTask.startTime = new Date(this.pausedTask.startTime);
-        this.pausedTask.duration = Number(this.pausedTask.duration) || 0;
-        console.log('Background: Restored paused task:', this.pausedTask);
+        const startTime = new Date(this.pausedTask.startTime);
+        if (isNaN(startTime.getTime())) {
+          console.warn('Background: Invalid startTime for pausedTask, resetting');
+          this.pausedTask = null;
+        } else {
+          this.pausedTask.startTime = startTime;
+          this.pausedTask.duration = Number(this.pausedTask.duration) || 0;
+          console.log('Background: Restored paused task:', this.pausedTask);
+        }
       }
       
-      this.tasks = this.tasks.map(task => ({
-        ...task,
-        startTime: new Date(task.startTime),
-        endTime: task.endTime ? new Date(task.endTime) : null,
-        duration: Number(task.duration) || 0
-      }));
+      // Validate and convert task dates
+      this.tasks = this.tasks.map(task => {
+        const startTime = new Date(task.startTime);
+        const endTime = task.endTime ? new Date(task.endTime) : null;
+        
+        // Skip tasks with invalid dates
+        if (isNaN(startTime.getTime()) || (task.endTime && isNaN(endTime.getTime()))) {
+          console.warn('Background: Skipping task with invalid dates:', task);
+          return null;
+        }
+        
+        return {
+          ...task,
+          startTime,
+          endTime,
+          duration: Number(task.duration) || 0
+        };
+      }).filter(task => task !== null); // Remove invalid tasks
 
       // Set appropriate icon state
       if (this.currentTask) {
@@ -82,20 +106,31 @@ class BackgroundService {
 
   async saveData() {
     try {
-      // Convert Date objects to ISO strings for storage
+      // Helper function to safely convert Date to ISO string
+      const safeToISOString = (date) => {
+        if (!date) return null;
+        const dateObj = date instanceof Date ? date : new Date(date);
+        if (isNaN(dateObj.getTime())) {
+          console.warn('Background: Invalid date encountered during save:', date);
+          return new Date().toISOString(); // Fallback to current time
+        }
+        return dateObj.toISOString();
+      };
+
+      // Convert Date objects to ISO strings for storage with validation
       const dataToSave = {
         currentTask: this.currentTask ? {
           ...this.currentTask,
-          startTime: this.currentTask.startTime.toISOString()
+          startTime: safeToISOString(this.currentTask.startTime)
         } : null,
         pausedTask: this.pausedTask ? {
           ...this.pausedTask,
-          startTime: this.pausedTask.startTime.toISOString()
+          startTime: safeToISOString(this.pausedTask.startTime)
         } : null,
         tasks: this.tasks.map(task => ({
           ...task,
-          startTime: task.startTime.toISOString(),
-          endTime: task.endTime ? task.endTime.toISOString() : null
+          startTime: safeToISOString(task.startTime),
+          endTime: safeToISOString(task.endTime)
         })),
         customers: this.customers,
         projects: this.projects,
@@ -377,16 +412,26 @@ class BackgroundService {
   }
 
   notifyPopupTimerUpdate() {
-    if (this.currentTask) {
+    if (this.currentTask && this.currentTask.startTime) {
       const currentTime = Date.now();
-      const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+      const startTime = this.currentTask.startTime.getTime();
+      
+      // Validate that we have a valid start time
+      if (isNaN(startTime)) {
+        console.warn('Background: Invalid start time for current task');
+        return;
+      }
+      
+      const sessionDuration = currentTime - startTime;
       const totalDuration = this.currentTask.duration + sessionDuration;
       
       chrome.runtime.sendMessage({
         action: 'timerUpdate',
         data: {
           totalDuration,
-          formattedTime: this.formatDuration(totalDuration)
+          formattedTime: this.formatDuration(totalDuration),
+          sessionDuration,
+          startTime: this.currentTask.startTime
         }
       }).catch(() => {
         // Popup is closed, ignore error
@@ -396,15 +441,21 @@ class BackgroundService {
 
   generateCSV(tasks) {
     const headers = ['Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)'];
-    const rows = tasks.map(task => [
-      `"${task.title.replace(/"/g, '""')}"`,
-      `"${task.customer}"`,
-      `"${task.project}"`,
-      task.billable ? 'Y' : 'N',
-      task.startTime.toISOString(),
-      task.endTime ? task.endTime.toISOString() : '',
-      Math.floor((Number(task.duration) || 0) / 1000)
-    ]);
+    const rows = tasks.map(task => {
+      // Ensure we have valid dates for CSV export
+      const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
+      const endTime = task.endTime ? (task.endTime instanceof Date ? task.endTime : new Date(task.endTime)) : null;
+      
+      return [
+        `"${task.title.replace(/"/g, '""')}"`,
+        `"${task.customer}"`,
+        `"${task.project}"`,
+        task.billable ? 'Y' : 'N',
+        isNaN(startTime.getTime()) ? '' : startTime.toISOString(),
+        endTime && !isNaN(endTime.getTime()) ? endTime.toISOString() : '',
+        Math.floor((Number(task.duration) || 0) / 1000)
+      ];
+    });
     
     return [headers, ...rows].map(row => row.join(',')).join('\n');
   }
