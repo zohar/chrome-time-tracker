@@ -376,8 +376,27 @@ class SettingsManager {
       const currentTasks = currentData.tasks || [];
       const allTasks = [...importedTasks, ...currentTasks];
       
-      // Save directly to storage (background script will pick up changes)
+      // Save directly to storage
       await chrome.storage.local.set({ tasks: allTasks });
+      
+      // Notify background script to reload data
+      try {
+        await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({ action: 'reloadData' }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else if (response && response.success) {
+              console.log('Background script reloaded data successfully');
+              resolve(response);
+            } else {
+              reject(new Error(response?.error || 'Failed to reload data in background'));
+            }
+          });
+        });
+      } catch (reloadError) {
+        console.warn('Failed to notify background script:', reloadError);
+        // Continue anyway - the storage change listener should pick it up
+      }
       
       let statusMessage = `Successfully imported ${importedTasks.length} tasks.`;
       if (errors.length > 0) {

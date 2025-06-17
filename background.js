@@ -48,7 +48,7 @@ class BackgroundService {
         
         // Check if tasks were changed (e.g., by options.js during import)
         if (changes.tasks) {
-          console.log('Background: Tasks changed in storage, reloading data...');
+          console.log('Background: Tasks changed in storage, old count:', this.tasks.length, 'new count:', changes.tasks.newValue?.length || 0);
           try {
             await this.loadData();
             console.log('Background: Data reloaded after storage change, tasks count:', this.tasks.length);
@@ -257,6 +257,9 @@ class BackgroundService {
             case 'updateSettings':
               return await this.handleUpdateSettings(message.data);
               
+            case 'reloadData':
+              return await this.handleReloadData();
+              
             case 'updateIcon':
               this.updateIcon(message.state);
               return { success: true };
@@ -271,7 +274,7 @@ class BackgroundService {
       };
 
       // For async operations, handle them and send response
-      if (['getInitialState', 'startTask', 'pauseTask', 'stopTask', 'resumeTask', 'stopPausedTask', 'updateTask', 'deleteTask', 'exportTasks', 'updateSettings'].includes(message.action)) {
+      if (['getInitialState', 'startTask', 'pauseTask', 'stopTask', 'resumeTask', 'stopPausedTask', 'updateTask', 'deleteTask', 'exportTasks', 'updateSettings', 'reloadData'].includes(message.action)) {
         handleAsync().then(response => {
           console.log('Background: Sending response:', response);
           sendResponse(response);
@@ -314,6 +317,18 @@ class BackgroundService {
       return { success: true, data: state };
     } catch (error) {
       console.error('Background: Error getting initial state:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleReloadData() {
+    try {
+      console.log('Background: Explicit reload data request received');
+      await this.loadData();
+      this.notifyPopupStateChange();
+      return { success: true, data: { tasksCount: this.tasks.length } };
+    } catch (error) {
+      console.error('Background: Error reloading data:', error);
       return { success: false, error: error.message };
     }
   }
