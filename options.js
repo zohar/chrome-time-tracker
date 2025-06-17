@@ -398,7 +398,15 @@ class SettingsManager {
       // Get current tasks and merge
       const currentData = await chrome.storage.local.get(['tasks']);
       const currentTasks = currentData.tasks || [];
-      const allTasks = [...importedTasks, ...currentTasks];
+      
+      // Convert Date objects to ISO strings for storage
+      const tasksForStorage = importedTasks.map(task => ({
+        ...task,
+        startTime: task.startTime instanceof Date ? task.startTime.toISOString() : task.startTime,
+        endTime: task.endTime instanceof Date ? task.endTime.toISOString() : task.endTime
+      }));
+      
+      const allTasks = [...tasksForStorage, ...currentTasks];
       
       console.log(`Saving ${allTasks.length} total tasks (${importedTasks.length} new + ${currentTasks.length} existing)`);
       

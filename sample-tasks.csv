@@ -1,4 +1,4 @@
-"Task Title","Customer","Project","Billable (Y/N)","Start Time","End Time","Duration (seconds)"
+"Task Title","Customer","Project","Billable","Start Time","End Time","Duration (seconds)"
 "Design homepage","Base44","Website Revamp","Y","2023-01-01T10:00:00.000Z","2023-01-01T11:30:00.000Z","5400"
 "Client meeting","Freenix","App Onboarding","N","2023-01-02T14:00:00.000Z","2023-01-02T15:00:00.000Z","3600"
 "Write documentation","InnovaCo","Internal Tools","Y","2023-01-03T09:15:00.000Z","2023-01-03T11:00:00.000Z","6300"

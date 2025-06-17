@@ -131,8 +131,9 @@ class BackgroundService {
       // Validate and convert task dates
       const originalTaskCount = this.tasks.length;
       this.tasks = this.tasks.map(task => {
-        const startTime = new Date(task.startTime);
-        const endTime = task.endTime ? new Date(task.endTime) : null;
+        // Handle both Date objects and date strings
+        const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
+        const endTime = task.endTime ? (task.endTime instanceof Date ? task.endTime : new Date(task.endTime)) : null;
         
         // Skip tasks with invalid dates
         if (isNaN(startTime.getTime()) || (task.endTime && isNaN(endTime.getTime()))) {
