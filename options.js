@@ -324,29 +324,44 @@ class SettingsManager {
             continue;
           }
           
-          const startTime = new Date(startTimeStr);
-          if (isNaN(startTime.getTime())) {
-            errors.push(`Line ${i + 1}: Invalid start time "${startTimeStr}"`);
+          // Parse start time with better error handling
+          let startTime = null;
+          if (startTimeStr) {
+            startTime = this.parseDateTime(startTimeStr);
+            if (!startTime) {
+              errors.push(`Line ${i + 1}: Invalid start time "${startTimeStr}". Expected ISO format like "2023-01-01T10:00:00.000Z"`);
+              continue;
+            }
+          } else {
+            errors.push(`Line ${i + 1}: Start time is required`);
             continue;
           }
           
+          // Parse end time with better error handling
           let endTime = null;
           if (endTimeStr) {
-            endTime = new Date(endTimeStr);
-            if (isNaN(endTime.getTime())) {
-              errors.push(`Line ${i + 1}: Invalid end time "${endTimeStr}"`);
+            endTime = this.parseDateTime(endTimeStr);
+            if (!endTime) {
+              errors.push(`Line ${i + 1}: Invalid end time "${endTimeStr}". Expected ISO format like "2023-01-01T11:00:00.000Z"`);
               continue;
             }
           }
           
+          // Parse duration
           const duration = parseInt(durationStr) * 1000; // Convert seconds to milliseconds
           if (isNaN(duration) || duration < 0) {
-            errors.push(`Line ${i + 1}: Invalid duration "${durationStr}"`);
+            errors.push(`Line ${i + 1}: Invalid duration "${durationStr}". Expected positive number in seconds`);
+            continue;
+          }
+          
+          // Validate that end time is after start time if both are provided
+          if (endTime && startTime && endTime <= startTime) {
+            errors.push(`Line ${i + 1}: End time must be after start time`);
             continue;
           }
           
           const task = {
-            id: Date.now() + i,
+            id: Date.now() + Math.random() * 1000 + i, // Ensure unique IDs
             title,
             customer: customer || '',
             project: project || '',
@@ -355,6 +370,13 @@ class SettingsManager {
             endTime,
             duration
           };
+          
+          console.log(`Parsed task ${i}:`, {
+            title: task.title,
+            startTime: task.startTime?.toISOString(),
+            endTime: task.endTime?.toISOString(),
+            duration: task.duration
+          });
           
           importedTasks.push(task);
           
@@ -371,10 +393,14 @@ class SettingsManager {
         throw new Error('No valid tasks found in the CSV file.');
       }
       
+      console.log(`Successfully parsed ${importedTasks.length} tasks from CSV`);
+      
       // Get current tasks and merge
       const currentData = await chrome.storage.local.get(['tasks']);
       const currentTasks = currentData.tasks || [];
       const allTasks = [...importedTasks, ...currentTasks];
+      
+      console.log(`Saving ${allTasks.length} total tasks (${importedTasks.length} new + ${currentTasks.length} existing)`);
       
       // Save directly to storage
       await chrome.storage.local.set({ tasks: allTasks });
@@ -382,7 +408,12 @@ class SettingsManager {
       // Notify background script to reload data
       try {
         await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Timeout waiting for background response'));
+          }, 5000);
+          
           chrome.runtime.sendMessage({ action: 'reloadData' }, (response) => {
+            clearTimeout(timeout);
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
             } else if (response && response.success) {
@@ -420,6 +451,37 @@ class SettingsManager {
     
     // Reset file input
     event.target.value = '';
+  }
+
+  // Enhanced date parsing function
+  parseDateTime(dateStr) {
+    if (!dateStr) return null;
+    
+    try {
+      // Try parsing as ISO string first
+      const date = new Date(dateStr);
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateStr);
+        return null;
+      }
+      
+      // Additional validation - check if it's a reasonable date (not too far in past/future)
+      const now = new Date();
+      const minDate = new Date('2000-01-01');
+      const maxDate = new Date(now.getFullYear() + 10, 11, 31); // 10 years in future
+      
+      if (date < minDate || date > maxDate) {
+        console.warn('Date out of reasonable range:', dateStr, date);
+        return null;
+      }
+      
+      return date;
+    } catch (error) {
+      console.warn('Error parsing date:', dateStr, error);
+      return null;
+    }
   }
 
   parseCSVLine(line) {
