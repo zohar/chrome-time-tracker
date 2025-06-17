@@ -42,29 +42,36 @@ class BackgroundService {
 
   setupStorageChangeListener() {
     // Listen for changes in chrome.storage.local
-    chrome.storage.onChanged.addListener((changes, namespace) => {
+    chrome.storage.onChanged.addListener(async (changes, namespace) => {
       if (namespace === 'local') {
         console.log('Background: Storage changes detected:', Object.keys(changes));
         
         // Check if tasks were changed (e.g., by options.js during import)
         if (changes.tasks) {
           console.log('Background: Tasks changed in storage, reloading data...');
-          this.loadData().then(() => {
-            console.log('Background: Data reloaded after storage change');
-            this.notifyPopupStateChange();
-          }).catch(error => {
+          try {
+            await this.loadData();
+            console.log('Background: Data reloaded after storage change, tasks count:', this.tasks.length);
+            
+            // Force notification to popup with a slight delay to ensure popup is ready
+            setTimeout(() => {
+              this.notifyPopupStateChange();
+              console.log('Background: Notified popup of task changes');
+            }, 100);
+          } catch (error) {
             console.error('Background: Error reloading data after storage change:', error);
-          });
+          }
         }
         
         // Check if other data changed
         if (changes.customers || changes.projects || changes.settings) {
           console.log('Background: Settings/customers/projects changed, reloading...');
-          this.loadData().then(() => {
+          try {
+            await this.loadData();
             this.notifyPopupStateChange();
-          }).catch(error => {
+          } catch (error) {
             console.error('Background: Error reloading settings after storage change:', error);
-          });
+          }
         }
       }
     });
@@ -81,7 +88,13 @@ class BackgroundService {
         'settings'
       ]);
       
-      console.log('Background: Loading data from storage:', data);
+      console.log('Background: Loading data from storage:', {
+        currentTask: !!data.currentTask,
+        pausedTask: !!data.pausedTask,
+        tasksCount: data.tasks?.length || 0,
+        customersCount: data.customers?.length || 0,
+        projectsCount: data.projects?.length || 0
+      });
       
       this.currentTask = data.currentTask || null;
       this.pausedTask = data.pausedTask || null;
@@ -116,6 +129,7 @@ class BackgroundService {
       }
       
       // Validate and convert task dates
+      const originalTaskCount = this.tasks.length;
       this.tasks = this.tasks.map(task => {
         const startTime = new Date(task.startTime);
         const endTime = task.endTime ? new Date(task.endTime) : null;
@@ -133,6 +147,12 @@ class BackgroundService {
           duration: Number(task.duration) || 0
         };
       }).filter(task => task !== null); // Remove invalid tasks
+
+      if (this.tasks.length !== originalTaskCount) {
+        console.warn(`Background: Filtered out ${originalTaskCount - this.tasks.length} invalid tasks`);
+      }
+
+      console.log(`Background: Successfully loaded ${this.tasks.length} tasks`);
 
       // Set appropriate icon state
       if (this.currentTask) {
@@ -183,7 +203,7 @@ class BackgroundService {
       };
       
       await chrome.storage.local.set(dataToSave);
-      console.log('Background: Data saved successfully');
+      console.log('Background: Data saved successfully, tasks count:', this.tasks.length);
     } catch (error) {
       console.error('Background: Error saving data:', error);
     }
@@ -272,6 +292,9 @@ class BackgroundService {
 
   async handleGetInitialState() {
     try {
+      // Always reload fresh data when popup requests initial state
+      await this.loadData();
+      
       const state = {
         currentTask: this.currentTask,
         pausedTask: this.pausedTask,
@@ -281,7 +304,13 @@ class BackgroundService {
         settings: this.settings
       };
       
-      console.log('Background: Sending initial state:', state);
+      console.log('Background: Sending initial state:', {
+        currentTask: !!state.currentTask,
+        pausedTask: !!state.pausedTask,
+        tasksCount: state.tasks.length,
+        customersCount: state.customers.length,
+        projectsCount: state.projects.length
+      });
       return { success: true, data: state };
     } catch (error) {
       console.error('Background: Error getting initial state:', error);
@@ -583,18 +612,27 @@ class BackgroundService {
 
   notifyPopupStateChange() {
     // Try to send message to popup (will fail silently if popup is closed)
+    const stateData = {
+      currentTask: this.currentTask,
+      pausedTask: this.pausedTask,
+      tasks: this.tasks,
+      customers: this.customers,
+      projects: this.projects,
+      settings: this.settings
+    };
+    
+    console.log('Background: Notifying popup of state change:', {
+      currentTask: !!stateData.currentTask,
+      pausedTask: !!stateData.pausedTask,
+      tasksCount: stateData.tasks.length
+    });
+    
     chrome.runtime.sendMessage({
       action: 'stateChanged',
-      data: {
-        currentTask: this.currentTask,
-        pausedTask: this.pausedTask,
-        tasks: this.tasks,
-        customers: this.customers,
-        projects: this.projects,
-        settings: this.settings
-      }
+      data: stateData
     }).catch(() => {
       // Popup is closed, ignore error
+      console.log('Background: Popup not available for state change notification');
     });
   }
 

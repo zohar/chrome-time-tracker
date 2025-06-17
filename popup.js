@@ -37,7 +37,7 @@ class TimeTracker {
   }
 
   async loadInitialState() {
-    const maxRetries = 3;
+    const maxRetries = 5; // Increased retries
     let retryCount = 0;
     
     while (retryCount < maxRetries) {
@@ -47,7 +47,7 @@ class TimeTracker {
         const response = await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error('Timeout waiting for background response'));
-          }, 5000); // 5 second timeout
+          }, 8000); // Increased timeout to 8 seconds
           
           chrome.runtime.sendMessage({ action: 'getInitialState' }, (response) => {
             clearTimeout(timeout);
@@ -61,7 +61,13 @@ class TimeTracker {
         
         if (response && response.success) {
           this.state = response.data;
-          console.log('Popup: Received initial state:', this.state);
+          console.log('Popup: Received initial state:', {
+            currentTask: !!this.state.currentTask,
+            pausedTask: !!this.state.pausedTask,
+            tasksCount: this.state.tasks.length,
+            customersCount: this.state.customers.length,
+            projectsCount: this.state.projects.length
+          });
           return; // Success, exit retry loop
         } else {
           throw new Error(response?.error || 'Invalid response from background');
@@ -72,7 +78,7 @@ class TimeTracker {
         
         if (retryCount < maxRetries) {
           // Wait before retrying, with exponential backoff
-          const delay = Math.pow(2, retryCount) * 500; // 1s, 2s, 4s
+          const delay = Math.pow(2, retryCount) * 500; // 1s, 2s, 4s, 8s, 16s
           console.log(`Popup: Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
@@ -90,6 +96,11 @@ class TimeTracker {
       
       switch (message.action) {
         case 'stateChanged':
+          console.log('Popup: State changed, updating UI with:', {
+            currentTask: !!message.data.currentTask,
+            pausedTask: !!message.data.pausedTask,
+            tasksCount: message.data.tasks.length
+          });
           this.state = message.data;
           this.updateUI();
           break;
@@ -371,7 +382,7 @@ class TimeTracker {
     }
   }
 
-  async sendMessageWithRetry(message, maxRetries = 2) {
+  async sendMessageWithRetry(message, maxRetries = 3) {
     let retryCount = 0;
     
     while (retryCount <= maxRetries) {
@@ -379,7 +390,7 @@ class TimeTracker {
         const response = await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error('Timeout waiting for response'));
-          }, 3000);
+          }, 5000); // Increased timeout
           
           chrome.runtime.sendMessage(message, (response) => {
             clearTimeout(timeout);
@@ -398,7 +409,7 @@ class TimeTracker {
         
         if (retryCount <= maxRetries) {
           // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } else {
           throw error;
         }
@@ -853,7 +864,11 @@ class TimeTracker {
 
   updateUI() {
     try {
-      console.log('Updating UI...');
+      console.log('Updating UI with state:', {
+        currentTask: !!this.state.currentTask,
+        pausedTask: !!this.state.pausedTask,
+        tasksCount: this.state.tasks.length
+      });
       this.updateTaskStates();
       this.updateCustomerProjectDropdowns();
       this.updateSummary();
@@ -1043,6 +1058,8 @@ class TimeTracker {
       if (!taskList) return;
       
       const recentTasks = this.state.tasks.slice(0, 10);
+      
+      console.log('Updating task list with', recentTasks.length, 'tasks');
       
       if (recentTasks.length === 0) {
         taskList.innerHTML = '<div class="empty-state">No tasks yet. Start tracking your first task!</div>';
