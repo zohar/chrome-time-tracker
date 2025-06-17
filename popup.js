@@ -4,6 +4,7 @@ class TimeTracker {
     this.currentPeriod = 'today';
     this.editingTask = null;
     this.lastEditedField = null; // Track which field was last edited
+    this.tasksDisplayed = 10; // Track how many tasks are currently displayed
     this.state = {
       currentTask: null,
       pausedTask: null,
@@ -156,6 +157,13 @@ class TimeTracker {
       // Export
       const exportBtn = document.getElementById('exportBtn');
       if (exportBtn) exportBtn.addEventListener('click', () => this.exportTasks());
+      
+      // Load More Tasks (will be added dynamically)
+      document.addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'loadMoreBtn') {
+          this.loadMoreTasks();
+        }
+      });
       
       // Modal controls
       const closeModal = document.getElementById('closeModal');
@@ -1057,16 +1065,31 @@ class TimeTracker {
       const taskList = document.getElementById('taskList');
       if (!taskList) return;
       
-      const recentTasks = this.state.tasks.slice(0, 10);
+      // Reset displayed count when updating task list (e.g., after deleting tasks)
+      this.tasksDisplayed = Math.min(10, this.state.tasks.length);
       
-      console.log('Updating task list with', recentTasks.length, 'tasks');
+      console.log('Updating task list with', this.tasksDisplayed, 'tasks out of', this.state.tasks.length, 'total');
       
-      if (recentTasks.length === 0) {
+      this.renderTaskList();
+    } catch (error) {
+      console.error('Error updating task list:', error);
+    }
+  }
+
+  renderTaskList() {
+    try {
+      const taskList = document.getElementById('taskList');
+      if (!taskList) return;
+      
+      if (this.state.tasks.length === 0) {
         taskList.innerHTML = '<div class="empty-state">No tasks yet. Start tracking your first task!</div>';
         return;
       }
       
-      taskList.innerHTML = recentTasks.map(task => `
+      const tasksToShow = this.state.tasks.slice(0, this.tasksDisplayed);
+      const hasMoreTasks = this.state.tasks.length > this.tasksDisplayed;
+      
+      const tasksHTML = tasksToShow.map(task => `
         <div class="task-item" data-task-id="${task.id}">
           <div class="task-item-info">
             <div class="task-item-title">${task.title}</div>
@@ -1081,6 +1104,16 @@ class TimeTracker {
           </div>
         </div>
       `).join('');
+      
+      const loadMoreHTML = hasMoreTasks ? `
+        <div class="load-more-section">
+          <button id="loadMoreBtn" class="btn btn-text">
+            Load More Tasks (${this.state.tasks.length - this.tasksDisplayed} remaining)
+          </button>
+        </div>
+      ` : '';
+      
+      taskList.innerHTML = tasksHTML + loadMoreHTML;
       
       // Add click handlers for editing tasks
       taskList.querySelectorAll('.task-item').forEach(item => {
@@ -1102,7 +1135,22 @@ class TimeTracker {
         });
       });
     } catch (error) {
-      console.error('Error updating task list:', error);
+      console.error('Error rendering task list:', error);
+    }
+  }
+
+  loadMoreTasks() {
+    try {
+      const remainingTasks = this.state.tasks.length - this.tasksDisplayed;
+      const tasksToAdd = Math.min(10, remainingTasks);
+      
+      if (tasksToAdd > 0) {
+        this.tasksDisplayed += tasksToAdd;
+        console.log('Loading more tasks. Now showing:', this.tasksDisplayed, 'out of', this.state.tasks.length);
+        this.renderTaskList();
+      }
+    } catch (error) {
+      console.error('Error loading more tasks:', error);
     }
   }
 

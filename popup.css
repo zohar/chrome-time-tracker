@@ -535,3 +535,23 @@ input[type="datetime-local"] {
 .modal-content {
   animation: fadeIn 0.3s ease;
 }
+
+/* Load More Section */
+.load-more-section {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 8px;
+}
+
+.load-more-section .btn {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: color 0.2s ease;
+}
+
+.load-more-section .btn:hover {
+  color: #374151;
+}
