@@ -77,6 +77,51 @@ class BackgroundService {
     });
   }
 
+  // Enhanced date parsing function
+  parseDate(dateValue) {
+    if (!dateValue) return null;
+    
+    try {
+      // If it's already a Date object, validate it
+      if (dateValue instanceof Date) {
+        return isNaN(dateValue.getTime()) ? null : dateValue;
+      }
+      
+      // If it's a string, parse it
+      if (typeof dateValue === 'string') {
+        const date = new Date(dateValue);
+        return isNaN(date.getTime()) ? null : date;
+      }
+      
+      // If it's a number (timestamp), convert it
+      if (typeof dateValue === 'number') {
+        const date = new Date(dateValue);
+        return isNaN(date.getTime()) ? null : date;
+      }
+      
+      // If it's an object with date properties, try to reconstruct
+      if (typeof dateValue === 'object' && dateValue !== null) {
+        // Handle cases where Date objects were serialized as plain objects
+        if (dateValue.getTime) {
+          return isNaN(dateValue.getTime()) ? null : dateValue;
+        }
+        
+        // Try to parse as ISO string if it has typical date object properties
+        const dateStr = dateValue.toString();
+        if (dateStr && dateStr !== '[object Object]') {
+          const date = new Date(dateStr);
+          return isNaN(date.getTime()) ? null : date;
+        }
+      }
+      
+      console.warn('Background: Unable to parse date value:', dateValue, typeof dateValue);
+      return null;
+    } catch (error) {
+      console.warn('Background: Error parsing date:', dateValue, error);
+      return null;
+    }
+  }
+
   async loadData() {
     try {
       const data = await chrome.storage.local.get([
@@ -103,10 +148,10 @@ class BackgroundService {
       this.projects = data.projects || ['General'];
       this.settings = { ...this.settings, ...data.settings };
 
-      // Convert date strings back to Date objects with validation
+      // Convert date strings back to Date objects with enhanced validation
       if (this.currentTask && this.currentTask.startTime) {
-        const startTime = new Date(this.currentTask.startTime);
-        if (isNaN(startTime.getTime())) {
+        const startTime = this.parseDate(this.currentTask.startTime);
+        if (!startTime) {
           console.warn('Background: Invalid startTime for currentTask, resetting');
           this.currentTask = null;
         } else {
@@ -117,8 +162,8 @@ class BackgroundService {
       }
       
       if (this.pausedTask && this.pausedTask.startTime) {
-        const startTime = new Date(this.pausedTask.startTime);
-        if (isNaN(startTime.getTime())) {
+        const startTime = this.parseDate(this.pausedTask.startTime);
+        if (!startTime) {
           console.warn('Background: Invalid startTime for pausedTask, resetting');
           this.pausedTask = null;
         } else {
@@ -128,24 +173,46 @@ class BackgroundService {
         }
       }
       
-      // Validate and convert task dates
+      // Validate and convert task dates with enhanced parsing
       const originalTaskCount = this.tasks.length;
-      this.tasks = this.tasks.map(task => {
-        const startTime = new Date(task.startTime);
-        const endTime = task.endTime ? new Date(task.endTime) : null;
+      this.tasks = this.tasks.map((task, index) => {
+        const startTime = this.parseDate(task.startTime);
+        const endTime = this.parseDate(task.endTime);
         
-        // Skip tasks with invalid dates
-        if (isNaN(startTime.getTime()) || (task.endTime && isNaN(endTime.getTime()))) {
-          console.warn('Background: Skipping task with invalid dates:', task);
+        // Skip tasks with invalid start dates (end date can be null for ongoing tasks)
+        if (!startTime) {
+          console.warn(`Background: Skipping task ${index} with invalid start date:`, {
+            title: task.title,
+            startTime: task.startTime,
+            startTimeType: typeof task.startTime
+          });
           return null;
         }
         
-        return {
+        // Validate end time if it exists
+        if (task.endTime && !endTime) {
+          console.warn(`Background: Task ${index} has invalid end date, setting to null:`, {
+            title: task.title,
+            endTime: task.endTime,
+            endTimeType: typeof task.endTime
+          });
+        }
+        
+        const validatedTask = {
           ...task,
           startTime,
-          endTime,
+          endTime: endTime || null,
           duration: Number(task.duration) || 0
         };
+        
+        console.log(`Background: Successfully parsed task ${index}:`, {
+          title: validatedTask.title,
+          startTime: validatedTask.startTime.toISOString(),
+          endTime: validatedTask.endTime?.toISOString() || null,
+          duration: validatedTask.duration
+        });
+        
+        return validatedTask;
       }).filter(task => task !== null); // Remove invalid tasks
 
       if (this.tasks.length !== originalTaskCount) {
@@ -483,7 +550,7 @@ class BackgroundService {
           customer: task.customer,
           project: task.project,
           billable: task.billable,
-          startTime: task.startTime ? new Date(task.startTime) : this.currentTask.startTime,
+          startTime: task.startTime ? this.parseDate(task.startTime) : this.currentTask.startTime,
           duration: Number(task.duration) || 0
         };
         
@@ -500,8 +567,8 @@ class BackgroundService {
         this.pausedTask = {
           ...task,
           id: this.pausedTask.id, // Preserve original ID
-          startTime: task.startTime ? new Date(task.startTime) : this.pausedTask.startTime,
-          endTime: task.endTime ? new Date(task.endTime) : this.pausedTask.endTime,
+          startTime: task.startTime ? this.parseDate(task.startTime) : this.pausedTask.startTime,
+          endTime: task.endTime ? this.parseDate(task.endTime) : this.pausedTask.endTime,
           duration: Number(task.duration) || 0
         };
         
@@ -513,8 +580,8 @@ class BackgroundService {
         if (taskIndex !== -1) {
           this.tasks[taskIndex] = {
             ...task,
-            startTime: task.startTime ? new Date(task.startTime) : this.tasks[taskIndex].startTime,
-            endTime: task.endTime ? new Date(task.endTime) : this.tasks[taskIndex].endTime,
+            startTime: task.startTime ? this.parseDate(task.startTime) : this.tasks[taskIndex].startTime,
+            endTime: task.endTime ? this.parseDate(task.endTime) : this.tasks[taskIndex].endTime,
             duration: Number(task.duration) || 0
           };
           
