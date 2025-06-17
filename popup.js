@@ -1086,10 +1086,17 @@ class TimeTracker {
       const taskList = document.getElementById('taskList');
       if (!taskList) return;
       
-      // Reset displayed count when updating task list (e.g., after deleting tasks)
-      this.tasksDisplayed = Math.min(10, this.state.tasks.length);
+      // Sort tasks first to maintain consistent ordering
+      this.sortedTasks = [...this.state.tasks].sort((a, b) => {
+        const dateA = new Date(a.startTime || a.endTime);
+        const dateB = new Date(b.startTime || b.endTime);
+        return dateB.getTime() - dateA.getTime();
+      });
       
-      console.log('Updating task list with', this.tasksDisplayed, 'tasks out of', this.state.tasks.length, 'total');
+      // Reset displayed count when updating task list (e.g., after deleting tasks)
+      this.tasksDisplayed = Math.min(10, this.sortedTasks.length);
+      
+      console.log('Updating task list with', this.tasksDisplayed, 'tasks out of', this.sortedTasks.length, 'total');
       
       this.renderTaskList();
     } catch (error) {
@@ -1107,10 +1114,63 @@ class TimeTracker {
         return;
       }
       
-      const tasksToShow = this.state.tasks.slice(0, this.tasksDisplayed);
-      const hasMoreTasks = this.state.tasks.length > this.tasksDisplayed;
+      // Use pre-sorted tasks
+      if (!this.sortedTasks) {
+        this.sortedTasks = [...this.state.tasks].sort((a, b) => {
+          const dateA = new Date(a.startTime || a.endTime);
+          const dateB = new Date(b.startTime || b.endTime);
+          return dateB.getTime() - dateA.getTime();
+        });
+      }
       
-      const tasksHTML = tasksToShow.map(task => `
+      const tasksToShow = this.sortedTasks.slice(0, this.tasksDisplayed);
+      const hasMoreTasks = this.sortedTasks.length > this.tasksDisplayed;
+      
+      // Group tasks by date
+      const groupedTasks = this.groupTasksByDate(tasksToShow);
+      
+      // Generate HTML for grouped tasks
+      const tasksHTML = this.renderGroupedTasks(groupedTasks);
+      
+      const loadMoreHTML = hasMoreTasks ? `
+        <div class="load-more-section">
+          <button id="loadMoreBtn" class="btn btn-text">
+            Load More Tasks (${this.sortedTasks.length - this.tasksDisplayed} remaining)
+          </button>
+        </div>
+      ` : '';
+      
+      taskList.innerHTML = tasksHTML + loadMoreHTML;
+    } catch (error) {
+      console.error('Error rendering task list:', error);
+    }
+  }
+
+  groupTasksByDate(tasks) {
+    const groups = {};
+    
+    tasks.forEach(task => {
+      const taskDate = new Date(task.startTime || task.endTime);
+      const dateKey = taskDate.toDateString(); // "Mon Dec 18 2023"
+      
+      if (!groups[dateKey]) {
+        groups[dateKey] = {
+          date: taskDate,
+          tasks: []
+        };
+      }
+      
+      groups[dateKey].tasks.push(task);
+    });
+    
+    // Sort groups by date (most recent first)
+    return Object.values(groups).sort((a, b) => b.date.getTime() - a.date.getTime());
+  }
+
+  renderGroupedTasks(groupedTasks) {
+    return groupedTasks.map(group => {
+      const dateHeader = this.formatDateHeader(group.date);
+      const tasksHTML = group.tasks.map(task => `
         <div class="task-item" data-task-id="${task.id}">
           <div class="task-item-info">
             <div class="task-item-title">${task.title}</div>
@@ -1126,28 +1186,46 @@ class TimeTracker {
         </div>
       `).join('');
       
-      const loadMoreHTML = hasMoreTasks ? `
-        <div class="load-more-section">
-          <button id="loadMoreBtn" class="btn btn-text">
-            Load More Tasks (${this.state.tasks.length - this.tasksDisplayed} remaining)
-          </button>
+      return `
+        <div class="task-group">
+          <div class="task-group-header">${dateHeader}</div>
+          <div class="task-group-content">
+            ${tasksHTML}
+          </div>
         </div>
-      ` : '';
-      
-      taskList.innerHTML = tasksHTML + loadMoreHTML;
-    } catch (error) {
-      console.error('Error rendering task list:', error);
+      `;
+    }).join('');
+  }
+
+  formatDateHeader(date) {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      // Format as "Monday, Dec 18, 2023"
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
     }
   }
 
   loadMoreTasks() {
     try {
-      const remainingTasks = this.state.tasks.length - this.tasksDisplayed;
+      const totalTasks = this.sortedTasks ? this.sortedTasks.length : this.state.tasks.length;
+      const remainingTasks = totalTasks - this.tasksDisplayed;
       const tasksToAdd = Math.min(10, remainingTasks);
       
       if (tasksToAdd > 0) {
         this.tasksDisplayed += tasksToAdd;
-        console.log('Loading more tasks. Now showing:', this.tasksDisplayed, 'out of', this.state.tasks.length);
+        console.log('Loading more tasks. Now showing:', this.tasksDisplayed, 'out of', totalTasks);
         this.renderTaskList();
       }
     } catch (error) {
