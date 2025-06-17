@@ -45,6 +45,11 @@ class TimeTracker {
       try {
         console.log(`Popup: Requesting initial state from background (attempt ${retryCount + 1}/${maxRetries})...`);
         
+        // Try to wake up the service worker if it's the first attempt
+        if (retryCount === 0) {
+          await this.wakeUpServiceWorker();
+        }
+        
         const response = await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error('Timeout waiting for background response'));
@@ -78,6 +83,13 @@ class TimeTracker {
         retryCount++;
         
         if (retryCount < maxRetries) {
+          // Try to wake up service worker on communication errors
+          if (error.message.includes('Could not establish connection') || 
+              error.message.includes('Receiving end does not exist')) {
+            console.log('Popup: Attempting to wake up service worker...');
+            await this.wakeUpServiceWorker();
+          }
+          
           // Wait before retrying, with exponential backoff
           const delay = Math.pow(2, retryCount) * 500; // 1s, 2s, 4s, 8s, 16s
           console.log(`Popup: Retrying in ${delay}ms...`);
@@ -87,6 +99,27 @@ class TimeTracker {
           // Continue with default state
         }
       }
+    }
+  }
+
+  async wakeUpServiceWorker() {
+    try {
+      // Try to wake up the service worker with a simple ping
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'ping' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.log('Popup: Service worker wakeup attempt completed');
+          } else {
+            console.log('Popup: Service worker responded to ping');
+          }
+          resolve();
+        });
+        
+        // Don't wait too long for the ping response
+        setTimeout(resolve, 500);
+      });
+    } catch (error) {
+      console.log('Popup: Service worker wakeup error (expected):', error);
     }
   }
 
@@ -437,6 +470,13 @@ class TimeTracker {
         retryCount++;
         
         if (retryCount <= maxRetries) {
+          // Try to wake up service worker on communication errors
+          if (error.message.includes('Could not establish connection') || 
+              error.message.includes('Receiving end does not exist')) {
+            console.log('Popup: Attempting to wake up service worker before retry...');
+            await this.wakeUpServiceWorker();
+          }
+          
           // Wait before retrying
           await new Promise(resolve => setTimeout(resolve, 1000));
         } else {

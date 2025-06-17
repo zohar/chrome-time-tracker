@@ -265,6 +265,9 @@ class BackgroundService {
               this.updateIcon(message.state);
               return { success: true };
               
+            case 'ping':
+              return { success: true, message: 'pong' };
+              
             default:
               return { success: false, error: 'Unknown action' };
           }
@@ -290,6 +293,8 @@ class BackgroundService {
       if (message.action === 'updateIcon') {
         this.updateIcon(message.state);
         sendResponse({ success: true });
+      } else if (message.action === 'ping') {
+        sendResponse({ success: true, message: 'pong' });
       }
     });
   }
