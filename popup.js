@@ -1212,6 +1212,22 @@ class TimeTracker {
         return;
       }
       
+      // Handle Enter key to start task when task title input is focused
+      if (e.key === 'Enter') {
+        const activeElement = document.activeElement;
+        const taskTitleInput = document.getElementById('taskTitle');
+        
+        // Check if the task title input is focused and has content
+        if (activeElement === taskTitleInput && taskTitleInput.value.trim()) {
+          e.preventDefault();
+          const startBtn = document.getElementById('startBtn');
+          if (startBtn && !startBtn.disabled) {
+            this.startTask();
+          }
+        }
+        return;
+      }
+      
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
           case 'j':
@@ -1228,13 +1244,6 @@ class TimeTracker {
               this.stopTask();
             } else if (this.state.pausedTask) {
               this.stopPausedTask();
-            }
-            break;
-          case 'Enter':
-            e.preventDefault();
-            if (!this.state.currentTask && !this.state.pausedTask) {
-              const startBtn = document.getElementById('startBtn');
-              if (startBtn && !startBtn.disabled) startBtn.click();
             }
             break;
         }
