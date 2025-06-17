@@ -158,10 +158,31 @@ class TimeTracker {
       const exportBtn = document.getElementById('exportBtn');
       if (exportBtn) exportBtn.addEventListener('click', () => this.exportTasks());
       
-      // Load More Tasks (will be added dynamically)
+      // Load More Tasks and Task List interactions (using event delegation)
       document.addEventListener('click', (e) => {
         if (e.target && e.target.id === 'loadMoreBtn') {
           this.loadMoreTasks();
+        }
+        
+        // Handle task item clicks for editing
+        const taskInfo = e.target.closest('.task-item-info');
+        if (taskInfo) {
+          const taskItem = taskInfo.closest('.task-item');
+          if (taskItem) {
+            const taskId = parseFloat(taskItem.dataset.taskId);
+            if (taskId) {
+              this.editTask(taskId);
+            }
+          }
+        }
+        
+        // Handle delete button clicks
+        if (e.target.classList.contains('task-delete-btn')) {
+          e.stopPropagation();
+          const taskId = parseFloat(e.target.dataset.taskId);
+          if (taskId) {
+            this.deleteTaskDirectly(taskId);
+          }
         }
       });
       
@@ -1114,26 +1135,6 @@ class TimeTracker {
       ` : '';
       
       taskList.innerHTML = tasksHTML + loadMoreHTML;
-      
-      // Add click handlers for editing tasks
-      taskList.querySelectorAll('.task-item').forEach(item => {
-        const taskInfo = item.querySelector('.task-item-info');
-        if (taskInfo) {
-          taskInfo.addEventListener('click', () => {
-            const taskId = parseInt(item.dataset.taskId);
-            this.editTask(taskId);
-          });
-        }
-      });
-      
-      // Add click handlers for delete buttons
-      taskList.querySelectorAll('.task-delete-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation(); // Prevent triggering the edit handler
-          const taskId = parseInt(btn.dataset.taskId);
-          this.deleteTaskDirectly(taskId);
-        });
-      });
     } catch (error) {
       console.error('Error rendering task list:', error);
     }
