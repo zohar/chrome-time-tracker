@@ -1,4 +1,4 @@
-# Time Tracker Pro - Chrome Extension
+# Open Time Tracker - Chrome Extension
 
 A professional time tracking Chrome extension with task management, reporting, and webhook integration.
 
@@ -33,7 +33,7 @@ A professional time tracking Chrome extension with task management, reporting, a
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable "Developer mode" in the top right
 3. Click "Load unpacked" and select the extension directory
-4. The Time Tracker Pro icon will appear in your extension toolbar
+4. The Open Time Tracker icon will appear in your extension toolbar
 
 ## Usage
 

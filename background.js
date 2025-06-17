@@ -1,4 +1,4 @@
-// Background script for Time Tracker Pro - State Management
+// Background script for Open Time Tracker - State Management
 class BackgroundService {
   constructor() {
     this.currentTask = null;
