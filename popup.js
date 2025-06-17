@@ -1148,6 +1148,7 @@ class TimeTracker {
 
   groupTasksByDate(tasks) {
     const groups = {};
+    const today = new Date().toDateString();
     
     tasks.forEach(task => {
       const taskDate = new Date(task.startTime || task.endTime);
@@ -1156,12 +1157,26 @@ class TimeTracker {
       if (!groups[dateKey]) {
         groups[dateKey] = {
           date: taskDate,
-          tasks: []
+          tasks: [],
+          totalDuration: 0
         };
       }
       
       groups[dateKey].tasks.push(task);
+      groups[dateKey].totalDuration += Number(task.duration) || 0;
     });
+    
+    // Add current task duration to today's total if applicable
+    if (this.state.currentTask && groups[today]) {
+      const currentTime = Date.now();
+      const startTime = new Date(this.state.currentTask.startTime);
+      
+      if (!isNaN(startTime.getTime())) {
+        const sessionDuration = currentTime - startTime.getTime();
+        const currentTaskTotalDuration = this.state.currentTask.duration + sessionDuration;
+        groups[today].totalDuration += currentTaskTotalDuration;
+      }
+    }
     
     // Sort groups by date (most recent first)
     return Object.values(groups).sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -1169,7 +1184,7 @@ class TimeTracker {
 
   renderGroupedTasks(groupedTasks) {
     return groupedTasks.map(group => {
-      const dateHeader = this.formatDateHeader(group.date);
+      const dateHeader = this.formatDateHeader(group.date, group.totalDuration);
       const tasksHTML = group.tasks.map(task => `
         <div class="task-item" data-task-id="${task.id}">
           <div class="task-item-info">
@@ -1197,24 +1212,31 @@ class TimeTracker {
     }).join('');
   }
 
-  formatDateHeader(date) {
+  formatDateHeader(date, totalDuration) {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
     
+    let dateText;
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      dateText = 'Today';
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      dateText = 'Yesterday';
     } else {
       // Format as "Monday, Dec 18, 2023"
-      return date.toLocaleDateString('en-US', {
+      dateText = date.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       });
     }
+    
+    const formattedDuration = this.formatDuration(totalDuration || 0);
+    return `
+      <span class="date-text">${dateText}</span>
+      <span class="daily-total">${formattedDuration}</span>
+    `;
   }
 
   loadMoreTasks() {
