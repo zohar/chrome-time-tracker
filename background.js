@@ -24,6 +24,7 @@ class BackgroundService {
     try {
       await this.loadData();
       this.setupMessageListener();
+      this.setupStorageChangeListener();
       this.startTimer();
       this.updateIcon('idle');
       this.isInitialized = true;
@@ -33,9 +34,40 @@ class BackgroundService {
       // Try to initialize with defaults if loading fails
       this.isInitialized = true;
       this.setupMessageListener();
+      this.setupStorageChangeListener();
       this.startTimer();
       this.updateIcon('idle');
     }
+  }
+
+  setupStorageChangeListener() {
+    // Listen for changes in chrome.storage.local
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'local') {
+        console.log('Background: Storage changes detected:', Object.keys(changes));
+        
+        // Check if tasks were changed (e.g., by options.js during import)
+        if (changes.tasks) {
+          console.log('Background: Tasks changed in storage, reloading data...');
+          this.loadData().then(() => {
+            console.log('Background: Data reloaded after storage change');
+            this.notifyPopupStateChange();
+          }).catch(error => {
+            console.error('Background: Error reloading data after storage change:', error);
+          });
+        }
+        
+        // Check if other data changed
+        if (changes.customers || changes.projects || changes.settings) {
+          console.log('Background: Settings/customers/projects changed, reloading...');
+          this.loadData().then(() => {
+            this.notifyPopupStateChange();
+          }).catch(error => {
+            console.error('Background: Error reloading settings after storage change:', error);
+          });
+        }
+      }
+    });
   }
 
   async loadData() {
