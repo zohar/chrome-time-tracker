@@ -5,8 +5,7 @@
   "description": "Professional time tracking extension with task management and reporting",
   "permissions": [
     "storage",
-    "activeTab",
-    "alarms"
+    "activeTab"
   ],
   "host_permissions": [
     "http://*/*",
