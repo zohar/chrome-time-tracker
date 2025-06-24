@@ -400,6 +400,31 @@ body {
   color: #dc2626;
 }
 
+.task-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.task-item:hover .task-play-btn {
+  opacity: 1;
+}
+
+.task-play-btn:hover {
+  background: #f0f9ff;
+  color: #3b82f6;
+}
+
 .empty-state {
   text-align: center;
   padding: 24px;

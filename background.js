@@ -234,6 +234,9 @@ class BackgroundService {
             case 'startTask':
               return await this.handleStartTask(message.data);
               
+            case 'restartTask':
+              return await this.handleRestartTask(message.data);
+              
             case 'pauseTask':
               return await this.handlePauseTask();
               
@@ -278,7 +281,7 @@ class BackgroundService {
       };
 
       // For async operations, handle them and send response
-      if (['getInitialState', 'startTask', 'pauseTask', 'stopTask', 'resumeTask', 'stopPausedTask', 'updateTask', 'deleteTask', 'exportTasks', 'updateSettings', 'reloadData'].includes(message.action)) {
+      if (['getInitialState', 'startTask', 'restartTask', 'pauseTask', 'stopTask', 'resumeTask', 'stopPausedTask', 'updateTask', 'deleteTask', 'exportTasks', 'updateSettings', 'reloadData'].includes(message.action)) {
         handleAsync().then(response => {
           console.log('Background: Sending response:', response);
           sendResponse(response);
@@ -360,6 +363,58 @@ class BackgroundService {
       return { success: true, data: this.currentTask };
     } catch (error) {
       console.error('Background: Error starting task:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleRestartTask(taskData) {
+    try {
+      // If there's a current running task, stop it first
+      if (this.currentTask) {
+        const currentTime = Date.now();
+        const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+        this.currentTask.duration += sessionDuration;
+        this.currentTask.endTime = new Date();
+        
+        console.log('Background: Stopping current task before restart:', this.currentTask);
+        
+        this.tasks.unshift(this.currentTask);
+        
+        // Send webhook if enabled for the stopped task
+        if (this.settings.webhookEnabled && this.settings.webhookUrl) {
+          this.sendWebhook(this.currentTask);
+        }
+      }
+      
+      // If there's a paused task, stop it first
+      if (this.pausedTask) {
+        this.pausedTask.endTime = new Date();
+        this.tasks.unshift(this.pausedTask);
+        
+        console.log('Background: Stopping paused task before restart:', this.pausedTask);
+        this.pausedTask = null;
+      }
+      
+      // Start the new task with the provided data
+      this.currentTask = {
+        id: Date.now(),
+        title: taskData.title,
+        customer: taskData.customer,
+        project: taskData.project,
+        billable: taskData.billable,
+        startTime: new Date(),
+        duration: 0
+      };
+      
+      console.log('Background: Restarted task:', this.currentTask);
+      
+      await this.saveData();
+      this.updateIcon('active');
+      this.notifyPopupStateChange();
+      
+      return { success: true, data: this.currentTask };
+    } catch (error) {
+      console.error('Background: Error restarting task:', error);
       return { success: false, error: error.message };
     }
   }

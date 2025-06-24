@@ -209,6 +209,15 @@ class TimeTracker {
           }
         }
         
+        // Handle play button clicks
+        if (e.target.classList.contains('task-play-btn')) {
+          e.stopPropagation();
+          const taskId = parseFloat(e.target.dataset.taskId);
+          if (taskId) {
+            this.restartTask(taskId);
+          }
+        }
+        
         // Handle delete button clicks
         if (e.target.classList.contains('task-delete-btn')) {
           e.stopPropagation();
@@ -595,6 +604,43 @@ class TimeTracker {
     } catch (error) {
       console.error('Error stopping paused task:', error);
       alert('Failed to stop paused task. Please try again.');
+    }
+  }
+
+  async restartTask(taskId) {
+    try {
+      const task = this.state.tasks.find(t => t.id === taskId);
+      if (!task) {
+        console.error('Task not found for restart:', taskId);
+        return;
+      }
+      
+      console.log('Popup: Restarting task with data:', {
+        title: task.title,
+        customer: task.customer,
+        project: task.project,
+        billable: task.billable
+      });
+      
+      const response = await this.sendMessageWithRetry({
+        action: 'restartTask',
+        data: {
+          title: task.title,
+          customer: task.customer || '',
+          project: task.project || '',
+          billable: task.billable || false
+        }
+      });
+      
+      if (response && response.success) {
+        console.log('Popup: Task restarted successfully');
+      } else {
+        console.error('Popup: Failed to restart task:', response);
+        alert('Failed to restart task. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error restarting task:', error);
+      alert('Failed to restart task. Please try again.');
     }
   }
 
@@ -1236,6 +1282,7 @@ class TimeTracker {
           </div>
           <div class="task-item-actions">
             <div class="task-item-duration">${this.formatDuration(Number(task.duration) || 0)}</div>
+            <button class="task-play-btn" data-task-id="${task.id}" title="Restart task">▶️</button>
             <button class="task-delete-btn" data-task-id="${task.id}" title="Delete task">🗑️</button>
           </div>
         </div>
