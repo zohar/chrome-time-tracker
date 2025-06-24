@@ -249,8 +249,6 @@ class SettingsManager {
         'Billable (Y/N)', // Alternative format for Billable column
       ];
       
-      console.log('CSV Headers found:', headers);
-      console.log('Expected headers:', expectedHeaders);
       
       // Check each expected header
       const missingHeaders = [];
@@ -371,12 +369,6 @@ class SettingsManager {
             duration
           };
           
-          console.log(`Parsed task ${i}:`, {
-            title: task.title,
-            startTime: task.startTime?.toISOString(),
-            endTime: task.endTime?.toISOString(),
-            duration: task.duration
-          });
           
           importedTasks.push(task);
           
@@ -393,7 +385,6 @@ class SettingsManager {
         throw new Error('No valid tasks found in the CSV file.');
       }
       
-      console.log(`Successfully parsed ${importedTasks.length} tasks from CSV`);
       
       // Get current tasks and merge
       const currentData = await chrome.storage.local.get(['tasks']);
@@ -408,7 +399,6 @@ class SettingsManager {
       
       const allTasks = [...tasksForStorage, ...currentTasks];
       
-      console.log(`Saving ${allTasks.length} total tasks (${importedTasks.length} new + ${currentTasks.length} existing)`);
       
       // Save directly to storage
       await chrome.storage.local.set({ tasks: allTasks });
@@ -425,7 +415,6 @@ class SettingsManager {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
             } else if (response && response.success) {
-              console.log('Background script reloaded data successfully');
               resolve(response);
             } else {
               reject(new Error(response?.error || 'Failed to reload data in background'));

@@ -20,18 +20,15 @@ class TimeTracker {
       }
     };
     
-    console.log('TimeTracker popup constructor called');
     this.init();
   }
 
   async init() {
     try {
-      console.log('Initializing TimeTracker popup...');
       await this.loadInitialState();
       this.setupEventListeners();
       this.setupMessageListener();
       this.updateUI();
-      console.log('TimeTracker popup initialized successfully');
     } catch (error) {
       console.error('Error initializing TimeTracker popup:', error);
     }
@@ -43,7 +40,6 @@ class TimeTracker {
     
     while (retryCount < maxRetries) {
       try {
-        console.log(`Popup: Requesting initial state from background (attempt ${retryCount + 1}/${maxRetries})...`);
         
         // Try to wake up the service worker if it's the first attempt
         if (retryCount === 0) {
@@ -67,13 +63,6 @@ class TimeTracker {
         
         if (response && response.success) {
           this.state = response.data;
-          console.log('Popup: Received initial state:', {
-            currentTask: !!this.state.currentTask,
-            pausedTask: !!this.state.pausedTask,
-            tasksCount: this.state.tasks.length,
-            customersCount: this.state.customers.length,
-            projectsCount: this.state.projects.length
-          });
           return; // Success, exit retry loop
         } else {
           throw new Error(response?.error || 'Invalid response from background');
@@ -86,16 +75,13 @@ class TimeTracker {
           // Try to wake up service worker on communication errors
           if (error.message.includes('Could not establish connection') || 
               error.message.includes('Receiving end does not exist')) {
-            console.log('Popup: Attempting to wake up service worker...');
             await this.wakeUpServiceWorker();
           }
           
           // Wait before retrying, with exponential backoff
           const delay = Math.pow(2, retryCount) * 500; // 1s, 2s, 4s, 8s, 16s
-          console.log(`Popup: Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
-          console.error('Popup: Failed to load initial state after all retries');
           // Continue with default state
         }
       }
@@ -108,9 +94,7 @@ class TimeTracker {
       return new Promise((resolve) => {
         chrome.runtime.sendMessage({ action: 'ping' }, (response) => {
           if (chrome.runtime.lastError) {
-            console.log('Popup: Service worker wakeup attempt completed');
           } else {
-            console.log('Popup: Service worker responded to ping');
           }
           resolve();
         });
@@ -119,22 +103,15 @@ class TimeTracker {
         setTimeout(resolve, 500);
       });
     } catch (error) {
-      console.log('Popup: Service worker wakeup error (expected):', error);
     }
   }
 
   setupMessageListener() {
     // Listen for state updates from background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      console.log('Popup: Received message:', message);
       
       switch (message.action) {
         case 'stateChanged':
-          console.log('Popup: State changed, updating UI with:', {
-            currentTask: !!message.data.currentTask,
-            pausedTask: !!message.data.pausedTask,
-            tasksCount: message.data.tasks.length
-          });
           this.state = message.data;
           this.updateUI();
           break;
@@ -149,7 +126,6 @@ class TimeTracker {
 
   setupEventListeners() {
     try {
-      console.log('Setting up event listeners...');
       
       // Task controls
       const startBtn = document.getElementById('startBtn');
@@ -252,7 +228,6 @@ class TimeTracker {
       // Keyboard shortcuts
       document.addEventListener('keydown', (e) => this.handleKeyboard(e));
       
-      console.log('Event listeners set up successfully');
     } catch (error) {
       console.error('Error setting up event listeners:', error);
     }
@@ -284,7 +259,6 @@ class TimeTracker {
         // Add keyboard navigation for duration field
         editDuration.addEventListener('keydown', (e) => this.handleDurationKeyboard(e));
         
-        console.log('Edit modal time listeners set up successfully');
       }
     } catch (error) {
       console.error('Error setting up edit modal time listeners:', error);
@@ -430,12 +404,11 @@ class TimeTracker {
 
   validateForm() {
     try {
-      const titleInput = document.getElementById('taskTitle');
       const startBtn = document.getElementById('startBtn');
       
-      if (titleInput && startBtn) {
-        const title = titleInput.value.trim();
-        startBtn.disabled = !title;
+      // Always enable start button for quick task creation
+      if (startBtn) {
+        startBtn.disabled = false;
       }
     } catch (error) {
       console.error('Error validating form:', error);
@@ -475,14 +448,12 @@ class TimeTracker {
         
         return response; // Success
       } catch (error) {
-        console.error(`Message failed (attempt ${retryCount + 1}):`, error);
         retryCount++;
         
         if (retryCount <= maxRetries) {
           // Try to wake up service worker on communication errors
           if (error.message.includes('Could not establish connection') || 
               error.message.includes('Receiving end does not exist')) {
-            console.log('Popup: Attempting to wake up service worker before retry...');
             await this.wakeUpServiceWorker();
           }
           
@@ -504,7 +475,12 @@ class TimeTracker {
       
       if (!titleInput) return;
       
-      const title = titleInput.value.trim();
+      let title = titleInput.value.trim();
+      // Use default title for quick start if empty
+      if (!title) {
+        title = 'Untitled Task';
+      }
+      
       // Allow empty customer and project - don't default to first item
       const customer = customerSelect ? customerSelect.value : '';
       const project = projectSelect ? projectSelect.value : '';
@@ -517,9 +493,6 @@ class TimeTracker {
         billable = this.state.settings.defaultBillable || false;
       }
       
-      if (!title) return;
-      
-      console.log('Popup: Starting task with data:', { title, customer, project, billable });
       
       const response = await this.sendMessageWithRetry({
         action: 'startTask',
@@ -527,14 +500,12 @@ class TimeTracker {
       });
       
       if (response && response.success) {
-        console.log('Popup: Task started successfully');
         
         // Clear form
         titleInput.value = '';
         if (billableToggle) billableToggle.classList.remove('active');
         this.validateForm();
       } else {
-        console.error('Popup: Failed to start task:', response);
         alert('Failed to start task. Please try again.');
       }
     } catch (error) {
@@ -548,9 +519,7 @@ class TimeTracker {
       const response = await this.sendMessageWithRetry({ action: 'pauseTask' });
       
       if (response && response.success) {
-        console.log('Popup: Task paused successfully');
       } else {
-        console.error('Popup: Failed to pause task:', response);
         alert('Failed to pause task. Please try again.');
       }
     } catch (error) {
@@ -563,11 +532,10 @@ class TimeTracker {
     try {
       const response = await this.sendMessageWithRetry({ action: 'stopTask' });
       
+      
       if (response && response.success) {
-        console.log('Popup: Task stopped successfully');
       } else {
-        console.error('Popup: Failed to stop task:', response);
-        alert('Failed to stop task. Please try again.');
+        alert(`Failed to stop task: ${response?.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error stopping task:', error);
@@ -580,9 +548,7 @@ class TimeTracker {
       const response = await this.sendMessageWithRetry({ action: 'resumeTask' });
       
       if (response && response.success) {
-        console.log('Popup: Task resumed successfully');
       } else {
-        console.error('Popup: Failed to resume task:', response);
         alert('Failed to resume task. Please try again.');
       }
     } catch (error) {
@@ -596,9 +562,7 @@ class TimeTracker {
       const response = await this.sendMessageWithRetry({ action: 'stopPausedTask' });
       
       if (response && response.success) {
-        console.log('Popup: Paused task stopped successfully');
       } else {
-        console.error('Popup: Failed to stop paused task:', response);
         alert('Failed to stop paused task. Please try again.');
       }
     } catch (error) {
@@ -611,16 +575,9 @@ class TimeTracker {
     try {
       const task = this.state.tasks.find(t => t.id === taskId);
       if (!task) {
-        console.error('Task not found for restart:', taskId);
         return;
       }
       
-      console.log('Popup: Restarting task with data:', {
-        title: task.title,
-        customer: task.customer,
-        project: task.project,
-        billable: task.billable
-      });
       
       const response = await this.sendMessageWithRetry({
         action: 'restartTask',
@@ -633,9 +590,7 @@ class TimeTracker {
       });
       
       if (response && response.success) {
-        console.log('Popup: Task restarted successfully');
       } else {
-        console.error('Popup: Failed to restart task:', response);
         alert('Failed to restart task. Please try again.');
       }
     } catch (error) {
@@ -847,7 +802,6 @@ class TimeTracker {
       });
       
       if (response && response.success) {
-        console.log('Popup: Task updated successfully');
         
         // Update settings if new customers or projects were added
         if (needsSettingsUpdate) {
@@ -866,7 +820,6 @@ class TimeTracker {
         await this.loadInitialState();
         this.updateUI();
       } else {
-        console.error('Popup: Failed to update task:', response);
         alert('Failed to update task. Please try again.');
       }
       
@@ -893,13 +846,11 @@ class TimeTracker {
       });
       
       if (response && response.success) {
-        console.log('Popup: Task deleted successfully');
         this.closeEditModal();
         // Force UI update to reflect changes immediately
         await this.loadInitialState();
         this.updateUI();
       } else {
-        console.error('Popup: Failed to delete task:', response);
         alert('Failed to delete task. Please try again.');
       }
       
@@ -924,12 +875,10 @@ class TimeTracker {
       });
       
       if (response && response.success) {
-        console.log('Popup: Task deleted successfully');
         // Force UI update to reflect changes immediately
         await this.loadInitialState();
         this.updateUI();
       } else {
-        console.error('Popup: Failed to delete task:', response?.error || 'Unknown error');
         alert(`Failed to delete task: ${response?.error || 'Unknown error'}`);
       }
       
@@ -979,17 +928,11 @@ class TimeTracker {
 
   updateUI() {
     try {
-      console.log('Updating UI with state:', {
-        currentTask: !!this.state.currentTask,
-        pausedTask: !!this.state.pausedTask,
-        tasksCount: this.state.tasks.length
-      });
       this.updateTaskStates();
       this.updateCustomerProjectDropdowns();
       this.updateSummary();
       this.updateTaskList();
       this.applyDefaultBillable();
-      console.log('UI updated successfully');
     } catch (error) {
       console.error('Error updating UI:', error);
     }
@@ -1012,10 +955,6 @@ class TimeTracker {
       const pausedTaskEl = document.getElementById('pausedTask');
       const startTaskEl = document.getElementById('startTask');
       
-      console.log('Updating task states:', {
-        hasCurrentTask: !!this.state.currentTask,
-        hasPausedTask: !!this.state.pausedTask
-      });
       
       if (this.state.currentTask) {
         if (currentTaskEl) currentTaskEl.style.display = 'block';
@@ -1069,7 +1008,6 @@ class TimeTracker {
         const startTime = new Date(this.state.currentTask.startTime);
         
         if (isNaN(startTime.getTime())) {
-          console.warn('Invalid start time for current task');
           return;
         }
         
@@ -1149,13 +1087,6 @@ class TimeTracker {
         }
       }
       
-      console.log('Summary update:', {
-        period: this.currentPeriod,
-        tasksCount: tasks.length,
-        totalTime,
-        billableTime,
-        hasCurrentTask: !!this.state.currentTask
-      });
       
       const totalTimeEl = document.getElementById('totalTime');
       const billableTimeEl = document.getElementById('billableTime');
@@ -1182,7 +1113,6 @@ class TimeTracker {
       // Reset displayed count when updating task list (e.g., after deleting tasks)
       this.tasksDisplayed = Math.min(10, this.sortedTasks.length);
       
-      console.log('Updating task list with', this.tasksDisplayed, 'tasks out of', this.sortedTasks.length, 'total');
       
       this.renderTaskList();
     } catch (error) {
@@ -1334,7 +1264,6 @@ class TimeTracker {
       
       if (tasksToAdd > 0) {
         this.tasksDisplayed += tasksToAdd;
-        console.log('Loading more tasks. Now showing:', this.tasksDisplayed, 'out of', totalTasks);
         this.renderTaskList();
       }
     } catch (error) {
@@ -1444,9 +1373,7 @@ class TimeTracker {
         link.click();
         document.body.removeChild(link);
         
-        console.log('Popup: Tasks exported successfully');
       } else {
-        console.error('Popup: Failed to export tasks:', response);
         alert(response?.error || 'Failed to export tasks');
       }
     } catch (error) {
@@ -1508,9 +1435,7 @@ class TimeTracker {
 }
 
 // Initialize when DOM is ready
-console.log('Popup script loaded, waiting for DOM...');
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM loaded, initializing TimeTracker popup...');
   try {
     new TimeTracker();
   } catch (error) {
@@ -1520,9 +1445,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Also try to initialize immediately if DOM is already loaded
 if (document.readyState === 'loading') {
-  console.log('DOM is still loading, waiting...');
 } else {
-  console.log('DOM already loaded, initializing popup immediately...');
   try {
     new TimeTracker();
   } catch (error) {
