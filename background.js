@@ -536,29 +536,7 @@ class BackgroundService {
       
       if (taskType === 'current' && this.currentTask && this.currentTask.id === task.id) {
         // Update current task - for active tasks, we need to handle timing carefully
-        const currentTime = Date.now();
-        const originalStartTime = this.currentTask.startTime.getTime();
-        const originalDuration = Number(this.currentTask.duration) || 0;
-        
-        // Detect which fields were edited
-        const startTimeEdited = task.startTime && new Date(task.startTime).getTime() !== originalStartTime;
-        const durationEdited = task.duration !== undefined && Number(task.duration) !== originalDuration;
-        
-        let newStartTime, newDuration;
-        
-        if (startTimeEdited) {
-          // Start Time edited: set startTime to new value, calculate duration as now - startTime
-          newStartTime = new Date(task.startTime);
-          newDuration = Math.max(0, currentTime - newStartTime.getTime());
-        } else if (durationEdited) {
-          // Duration edited: set duration to new value, calculate startTime as now - duration
-          newDuration = Number(task.duration);
-          newStartTime = new Date(currentTime - newDuration);
-        } else {
-          // Only non-time fields edited: preserve startTime, calculate duration as now - startTime
-          newStartTime = this.currentTask.startTime;
-          newDuration = originalDuration + (currentTime - originalStartTime);
-        }
+        const wasRunning = this.currentTask.startTime;
         
         this.currentTask = {
           ...this.currentTask,
@@ -566,9 +544,15 @@ class BackgroundService {
           customer: task.customer,
           project: task.project,
           billable: task.billable,
-          startTime: newStartTime,
-          duration: newDuration
+          startTime: task.startTime ? new Date(task.startTime) : this.currentTask.startTime,
+          duration: Number(task.duration) || 0
         };
+        
+        // If the task was running and we changed the start time, we need to reset the start time to now
+        // to continue tracking from the current moment with the new accumulated duration
+        if (wasRunning && task.startTime) {
+          this.currentTask.startTime = new Date();
+        }
         
         console.log('Background: Updated current task:', this.currentTask);
         
