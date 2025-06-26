@@ -175,6 +175,7 @@ body {
 .btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 10px 16px;
   border: none;
@@ -423,6 +424,23 @@ body {
 .task-play-btn:hover {
   background: #f0f9ff;
   color: #3b82f6;
+}
+
+.task-play-btn:hover .play-icon {
+  fill: #3b82f6;
+}
+
+.play-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  transition: fill 0.2s ease;
+}
+
+.btn .play-icon {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
 }
 
 .empty-state {
