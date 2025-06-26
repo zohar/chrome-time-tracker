@@ -443,8 +443,8 @@ class TimeTracker {
       const startBtn = document.getElementById('startBtn');
       
       if (titleInput && startBtn) {
-        const title = titleInput.value.trim();
-        startBtn.disabled = !title;
+        // Always enable the start button - allow starting without a title
+        startBtn.disabled = false;
       }
     } catch (error) {
       console.error('Error validating form:', error);
@@ -513,7 +513,8 @@ class TimeTracker {
       
       if (!titleInput) return;
       
-      const title = titleInput.value.trim();
+      const titleInput_value = titleInput.value.trim();
+      const title = titleInput_value || 'Untitled task';
       // Allow empty customer and project - don't default to first item
       const customer = customerSelect ? customerSelect.value : '';
       const project = projectSelect ? projectSelect.value : '';
@@ -525,8 +526,6 @@ class TimeTracker {
       } else {
         billable = this.state.settings.defaultBillable || false;
       }
-      
-      if (!title) return;
       
       console.log('Popup: Starting task with data:', { title, customer, project, billable });
       
@@ -1488,8 +1487,8 @@ class TimeTracker {
         const activeElement = document.activeElement;
         const taskTitleInput = document.getElementById('taskTitle');
         
-        // Check if the task title input is focused and has content
-        if (activeElement === taskTitleInput && taskTitleInput.value.trim()) {
+        // Check if the task title input is focused (allow empty title)
+        if (activeElement === taskTitleInput) {
           e.preventDefault();
           const startBtn = document.getElementById('startBtn');
           if (startBtn && !startBtn.disabled) {
