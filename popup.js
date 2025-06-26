@@ -210,9 +210,10 @@ class TimeTracker {
         }
         
         // Handle play button clicks
-        if (e.target.classList.contains('task-play-btn')) {
+        const playBtn = e.target.closest('.task-play-btn');
+        if (playBtn) {
           e.stopPropagation();
-          const taskId = parseFloat(e.target.dataset.taskId);
+          const taskId = parseFloat(playBtn.dataset.taskId);
           if (taskId) {
             this.restartTask(taskId);
           }
