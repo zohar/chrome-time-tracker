@@ -392,33 +392,41 @@ class TimeTracker {
       const duration = this.parseDurationInput(durationStr);
       
       // Calculate based on which field was last edited
-      if (this.lastEditedField === 'start' || this.lastEditedField === 'duration') {
-        // Start time or duration changed - calculate end time
-        if (startTime && !isNaN(startTime.getTime()) && duration !== null && duration >= 0) {
-          const calculatedEndTime = new Date(startTime.getTime() + duration);
-          editEndTime.value = this.formatDateTimeLocal(calculatedEndTime);
-        } else if (!startTimeStr || !durationStr) {
-          editEndTime.value = '';
+      if (this.lastEditedField === 'duration') {
+        // Duration changed - move start time back or forth from end time
+        if (endTime && !isNaN(endTime.getTime()) && duration !== null && duration >= 0) {
+          const calculatedStartTime = new Date(endTime.getTime() - duration);
+          editStartTime.value = this.formatDateTimeLocal(calculatedStartTime);
+        } else if (!endTimeStr || !durationStr) {
+          editStartTime.value = '';
+        }
+      } else if (this.lastEditedField === 'start') {
+        // Start time changed - calculate duration if we have end time
+        if (startTime && endTime && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
+          let calculatedDuration = endTime.getTime() - startTime.getTime();
+          
+          // Cross-midnight handling: if start time is after end time, assume previous day
+          if (calculatedDuration < 0) {
+            // Add 24 hours to handle cross-midnight scenario
+            calculatedDuration += 24 * 60 * 60 * 1000;
+          }
+          
+          editDuration.value = this.formatDurationForInput(calculatedDuration);
+        } else if (!startTimeStr || !endTimeStr) {
+          editDuration.value = '00:00:00';
         }
       } else if (this.lastEditedField === 'end') {
         // End time changed - calculate duration if we have start time
         if (startTime && endTime && !isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
-          const calculatedDuration = endTime.getTime() - startTime.getTime();
-          if (calculatedDuration >= 0) {
-            // Enforce 23:59:59 maximum (86340000 ms)
-            const maxDuration = 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000;
-            const finalDuration = Math.min(calculatedDuration, maxDuration);
-            editDuration.value = this.formatDurationForInput(finalDuration);
-            
-            // If we capped the duration, update the end time to reflect the cap
-            if (finalDuration < calculatedDuration) {
-              const cappedEndTime = new Date(startTime.getTime() + finalDuration);
-              editEndTime.value = this.formatDateTimeLocal(cappedEndTime);
-            }
-          } else {
-            // Negative duration - clear duration field
-            editDuration.value = '00:00:00';
+          let calculatedDuration = endTime.getTime() - startTime.getTime();
+          
+          // Cross-midnight handling: if start time is after end time, assume previous day
+          if (calculatedDuration < 0) {
+            // Add 24 hours to handle cross-midnight scenario
+            calculatedDuration += 24 * 60 * 60 * 1000;
           }
+          
+          editDuration.value = this.formatDurationForInput(calculatedDuration);
         } else if (!startTimeStr || !endTimeStr) {
           editDuration.value = '00:00:00';
         }
@@ -800,12 +808,7 @@ class TimeTracker {
           return;
         }
         
-        // Enforce 23:59:59 maximum (86340000 ms)
-        const maxDuration = 23 * 3600 * 1000 + 59 * 60 * 1000 + 59 * 1000;
-        if (duration > maxDuration) {
-          alert('Maximum duration is 23:59:59');
-          return;
-        }
+        // Allow unlimited duration for cross-midnight tasks
       }
       
       // Check if customer or project are new and need to be added
@@ -825,7 +828,17 @@ class TimeTracker {
         needsSettingsUpdate = true;
       }
       
-      // For current tasks, we need to handle the timing differently
+      // Calculate final duration from timestamps, not from duration field
+      let finalDuration = duration;
+      if (startTime && endTime) {
+        let calculatedDuration = endTime.getTime() - startTime.getTime();
+        // Handle cross-midnight scenarios
+        if (calculatedDuration < 0) {
+          calculatedDuration += 24 * 60 * 60 * 1000;
+        }
+        finalDuration = calculatedDuration;
+      }
+      
       let taskData = {
         ...this.editingTask,
         title,
@@ -834,7 +847,7 @@ class TimeTracker {
         billable,
         startTime: startTime || this.editingTask.startTime,
         endTime: endTime,
-        duration
+        duration: finalDuration
       };
       
       // Send update to background
