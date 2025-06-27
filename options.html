@@ -14,7 +14,8 @@
     </div>
 
     <div class="settings-section">
-      <h2>General Settings</h2>
+      <h2>⚙️ Task Defaults & Preferences</h2>
+      <p class="section-description">Configure default values for new tasks and general preferences.</p>
       
       <div class="form-group">
         <label for="defaultCustomer">Default Customer</label>
@@ -41,7 +42,8 @@
     </div>
 
     <div class="settings-section">
-      <h2>Currency & Revenue</h2>
+      <h2>💰 Currency & Revenue Settings</h2>
+      <p class="section-description">Configure currency display and revenue calculation preferences.</p>
       
       <div class="form-group">
         <label for="currency">Currency</label>
@@ -152,8 +154,8 @@
     </div>
 
     <div class="settings-section">
-      <h2>Customers & Projects</h2>
-      <p class="section-description">Add hourly rates by using the format: "Name, Rate" (e.g., "ABC Corporation, 80" for €80/hour)</p>
+      <h2>👥 Customers & Projects</h2>
+      <p class="section-description">Manage your customers and projects with optional hourly rates. Use the format: "Name, Rate" (e.g., "ABC Corporation, 80" for €80/hour). Project rates override customer rates when both are set.</p>
       
       <div class="form-group">
         <label for="customersInput">Customers (one per line)</label>
@@ -169,8 +171,104 @@
     </div>
 
     <div class="settings-section">
-      <h2>Webhook Integration</h2>
-      <p class="section-description">Automatically sync your time logs with external services.</p>
+      <h2>📊 Data Import & Export</h2>
+      <p class="section-description">Manage your time tracking data with import and export capabilities.</p>
+      
+      <!-- Import Data Section -->
+      <div class="subsection">
+        <h3 class="subsection-title">📥 Import Data</h3>
+        <div class="form-group">
+          <div class="help-label">
+            <label for="importData">Import Data</label>
+            <span class="help-icon" id="importHelpIcon" title="Click for detailed import information">
+              <img src="icons/help.svg" alt="Help" class="help-svg" />
+            </span>
+          </div>
+          <input type="file" id="importData" class="form-control" accept=".csv">
+          <small class="help-text">Import tasks from CSV file</small>
+          
+          <div class="import-options" style="margin-top: 10px;">
+            <label><strong>Import Mode:</strong></label>
+            <div style="margin-top: 5px;">
+              <label class="radio-label">
+                <input type="radio" name="importMode" value="append" checked>
+                <span class="radio-text"><strong>Append</strong> - Add new tasks (may create duplicates)</span>
+              </label>
+            </div>
+            <div style="margin-top: 5px;">
+              <label class="radio-label">
+                <input type="radio" name="importMode" value="update">
+                <span class="radio-text"><strong>Update</strong> - Update existing tasks, add new ones</span>
+              </label>
+            </div>
+            <div style="margin-top: 5px;">
+              <label class="radio-label">
+                <input type="radio" name="importMode" value="replace">
+                <span class="radio-text"><strong>Replace</strong> - Clear all existing tasks and import fresh</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="section-divider">
+
+      <!-- Bulk Update Section -->
+      <div class="subsection">
+        <h3 class="subsection-title">🔄 Bulk Update Names</h3>
+        <div class="form-group">
+          <p class="help-text">Update customer or project names across all existing tasks</p>
+          
+          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <div style="flex: 1;">
+              <label for="oldName">Current Name</label>
+              <input type="text" id="oldName" class="form-control" placeholder="e.g., ABC Corp">
+            </div>
+            <div style="flex: 1;">
+              <label for="newName">New Name</label>
+              <input type="text" id="newName" class="form-control" placeholder="e.g., ABC Corporation, 80">
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 10px;">
+            <label class="radio-label">
+              <input type="radio" name="updateType" value="customer" checked>
+              <span class="radio-text">Update Customer Names</span>
+            </label>
+            <label class="radio-label" style="margin-left: 20px;">
+              <input type="radio" name="updateType" value="project">
+              <span class="radio-text">Update Project Names</span>
+            </label>
+          </div>
+          
+          <div>
+            <button id="previewNameUpdate" class="btn btn-secondary">Preview Changes</button>
+            <button id="applyNameUpdate" class="btn btn-primary" disabled>Apply Changes</button>
+          </div>
+          
+          <div id="nameUpdatePreview" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">
+            <h4>Preview</h4>
+            <div id="nameUpdateResults"></div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="section-divider">
+
+      <!-- Export Data Section -->
+      <div class="subsection">
+        <h3 class="subsection-title">📤 Export Data</h3>
+        <div class="form-group">
+          <button id="exportAllData" class="btn btn-primary">Export All Data</button>
+          <small class="help-text">Download all your time tracking data as CSV</small>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="settings-section">
+      <h2>🔗 External Integrations</h2>
+      <p class="section-description">Connect with external services and APIs.</p>
       
       <div class="form-group">
         <label class="checkbox-label">
@@ -192,85 +290,11 @@
     </div>
 
     <div class="settings-section">
-      <h2>Data Management</h2>
+      <h2>⚠️ Danger Zone</h2>
+      <p class="section-description">Destructive operations that cannot be undone. Use with extreme caution.</p>
       
-      <div class="form-group">
-        <button id="exportAllData" class="btn btn-primary">Export All Data</button>
-        <small class="help-text">Download all your time tracking data as CSV</small>
-      </div>
-
-      <div class="form-group">
-        <div class="help-label">
-          <label for="importData">Import Data</label>
-          <span class="help-icon" id="importHelpIcon" title="Click for detailed import information">
-            <img src="icons/help.svg" alt="Help" class="help-svg" />
-          </span>
-        </div>
-        <input type="file" id="importData" class="form-control" accept=".csv">
-        <small class="help-text">Import tasks from CSV file</small>
-        
-        <div class="import-options" style="margin-top: 10px;">
-          <label><strong>Import Mode:</strong></label>
-          <div style="margin-top: 5px;">
-            <label class="radio-label">
-              <input type="radio" name="importMode" value="append" checked>
-              <span class="radio-text"><strong>Append</strong> - Add new tasks (may create duplicates)</span>
-            </label>
-          </div>
-          <div style="margin-top: 5px;">
-            <label class="radio-label">
-              <input type="radio" name="importMode" value="update">
-              <span class="radio-text"><strong>Update</strong> - Update existing tasks, add new ones</span>
-            </label>
-          </div>
-          <div style="margin-top: 5px;">
-            <label class="radio-label">
-              <input type="radio" name="importMode" value="replace">
-              <span class="radio-text"><strong>Replace</strong> - Clear all existing tasks and import fresh</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <h3>Bulk Update Customer/Project Names</h3>
-        <p class="help-text">Update customer or project names across all existing tasks</p>
-        
-        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-          <div style="flex: 1;">
-            <label for="oldName">Current Name</label>
-            <input type="text" id="oldName" class="form-control" placeholder="e.g., ABC Corp">
-          </div>
-          <div style="flex: 1;">
-            <label for="newName">New Name</label>
-            <input type="text" id="newName" class="form-control" placeholder="e.g., ABC Corporation, 80">
-          </div>
-        </div>
-        
-        <div style="margin-bottom: 10px;">
-          <label class="radio-label">
-            <input type="radio" name="updateType" value="customer" checked>
-            <span class="radio-text">Update Customer Names</span>
-          </label>
-          <label class="radio-label" style="margin-left: 20px;">
-            <input type="radio" name="updateType" value="project">
-            <span class="radio-text">Update Project Names</span>
-          </label>
-        </div>
-        
-        <div>
-          <button id="previewNameUpdate" class="btn btn-secondary">Preview Changes</button>
-          <button id="applyNameUpdate" class="btn btn-primary" disabled>Apply Changes</button>
-        </div>
-        
-        <div id="nameUpdatePreview" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">
-          <h4>Preview</h4>
-          <div id="nameUpdateResults"></div>
-        </div>
-      </div>
-
       <div class="form-group danger-zone">
-        <h3>Danger Zone</h3>
+        <h3>Delete All Data</h3>
         <button id="clearAllData" class="btn btn-danger">Clear All Data</button>
         <small class="help-text">This will permanently delete all your time tracking data</small>
       </div>

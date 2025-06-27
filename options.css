@@ -59,6 +59,25 @@ body {
   margin-bottom: 20px;
 }
 
+.subsection {
+  margin-bottom: 24px;
+}
+
+.subsection-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+  padding-bottom: 4px;
+}
+
+.section-divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #e5e7eb, transparent);
+  margin: 32px 0;
+}
+
 .form-group {
   margin-bottom: 20px;
 }
