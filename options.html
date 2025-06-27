@@ -119,10 +119,34 @@
       <div class="form-group">
         <label for="currencyFormat">Display Format</label>
         <select id="currencyFormat" class="form-control">
-          <option value="1234.56 €">1234.56 € (Amount + Symbol)</option>
-          <option value="€1,234.56">€1,234.56 (Symbol + Amount)</option>
-          <option value="1,234.56 EUR">1,234.56 EUR (Amount + Code)</option>
-          <option value="EUR 1,234.56">EUR 1,234.56 (Code + Amount)</option>
+          <optgroup label="Symbol After Amount">
+            <option value="1,234.56 €">1,234.56 € (Comma thousands, dot decimal)</option>
+            <option value="1.234,56 €">1.234,56 € (Dot thousands, comma decimal)</option>
+            <option value="1 234,56 €">1 234,56 € (Space thousands, comma decimal)</option>
+            <option value="1'234.56 €">1'234.56 € (Apostrophe thousands, dot decimal)</option>
+            <option value="1234.56 €">1234.56 € (No thousands separator)</option>
+          </optgroup>
+          <optgroup label="Symbol Before Amount">
+            <option value="€1,234.56">€1,234.56 (Comma thousands, dot decimal)</option>
+            <option value="€1.234,56">€1.234,56 (Dot thousands, comma decimal)</option>
+            <option value="€1 234,56">€1 234,56 (Space thousands, comma decimal)</option>
+            <option value="€1'234.56">€1'234.56 (Apostrophe thousands, dot decimal)</option>
+            <option value="€1234.56">€1234.56 (No thousands separator)</option>
+          </optgroup>
+          <optgroup label="Currency Code After Amount">
+            <option value="1,234.56 EUR">1,234.56 EUR (Comma thousands, dot decimal)</option>
+            <option value="1.234,56 EUR">1.234,56 EUR (Dot thousands, comma decimal)</option>
+            <option value="1 234,56 EUR">1 234,56 EUR (Space thousands, comma decimal)</option>
+            <option value="1'234.56 EUR">1'234.56 EUR (Apostrophe thousands, dot decimal)</option>
+            <option value="1234.56 EUR">1234.56 EUR (No thousands separator)</option>
+          </optgroup>
+          <optgroup label="Currency Code Before Amount">
+            <option value="EUR 1,234.56">EUR 1,234.56 (Comma thousands, dot decimal)</option>
+            <option value="EUR 1.234,56">EUR 1.234,56 (Dot thousands, comma decimal)</option>
+            <option value="EUR 1 234,56">EUR 1 234,56 (Space thousands, comma decimal)</option>
+            <option value="EUR 1'234.56">EUR 1'234.56 (Apostrophe thousands, dot decimal)</option>
+            <option value="EUR 1234.56">EUR 1234.56 (No thousands separator)</option>
+          </optgroup>
         </select>
       </div>
     </div>

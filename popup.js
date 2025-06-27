@@ -617,11 +617,17 @@ class TimeTracker {
       const projectDatalist = document.getElementById('editProjectDatalist');
       
       if (customerDatalist) {
-        customerDatalist.innerHTML = this.state.customers.map(c => `<option value="${c}">`).join('');
+        customerDatalist.innerHTML = this.state.customers.map(c => {
+          const parsed = this.parseNameAndRate(c);
+          return `<option value="${parsed.name}">`;
+        }).join('');
       }
       
       if (projectDatalist) {
-        projectDatalist.innerHTML = this.state.projects.map(p => `<option value="${p}">`).join('');
+        projectDatalist.innerHTML = this.state.projects.map(p => {
+          const parsed = this.parseNameAndRate(p);
+          return `<option value="${parsed.name}">`;
+        }).join('');
       }
     } catch (error) {
       console.error('Error populating edit datalists:', error);
@@ -911,8 +917,16 @@ class TimeTracker {
         const billableEl = document.getElementById('currentTaskBillable');
         
         if (titleEl) titleEl.textContent = this.state.currentTask.title;
-        if (customerEl) customerEl.textContent = this.state.currentTask.customer || 'No Customer';
-        if (projectEl) projectEl.textContent = this.state.currentTask.project || 'No Project';
+        if (customerEl) {
+          const customerName = this.state.currentTask.customer ? 
+            this.parseNameAndRate(this.state.currentTask.customer).name : 'No Customer';
+          customerEl.textContent = customerName;
+        }
+        if (projectEl) {
+          const projectName = this.state.currentTask.project ? 
+            this.parseNameAndRate(this.state.currentTask.project).name : 'No Project';
+          projectEl.textContent = projectName;
+        }
         if (billableEl) billableEl.style.display = this.state.currentTask.billable ? 'inline-flex' : 'none';
         
         // Update timer immediately
@@ -930,8 +944,16 @@ class TimeTracker {
         const timerEl = document.getElementById('pausedTaskTimer');
         
         if (titleEl) titleEl.textContent = this.state.pausedTask.title;
-        if (customerEl) customerEl.textContent = this.state.pausedTask.customer || 'No Customer';
-        if (projectEl) projectEl.textContent = this.state.pausedTask.project || 'No Project';
+        if (customerEl) {
+          const customerName = this.state.pausedTask.customer ? 
+            this.parseNameAndRate(this.state.pausedTask.customer).name : 'No Customer';
+          customerEl.textContent = customerName;
+        }
+        if (projectEl) {
+          const projectName = this.state.pausedTask.project ? 
+            this.parseNameAndRate(this.state.pausedTask.project).name : 'No Project';
+          projectEl.textContent = projectName;
+        }
         if (billableEl) billableEl.style.display = this.state.pausedTask.billable ? 'inline-flex' : 'none';
         if (timerEl) timerEl.textContent = this.formatDuration(this.state.pausedTask.duration);
         
@@ -988,19 +1010,27 @@ class TimeTracker {
       
       if (customerSelect) {
         customerSelect.innerHTML = '<option value="">Select Customer</option>' +
-          this.state.customers.map(c => `<option value="${c}">${c}</option>`).join('');
+          this.state.customers.map(c => {
+            const parsed = this.parseNameAndRate(c);
+            return `<option value="${parsed.name}">${parsed.name}</option>`;
+          }).join('');
         
         if (this.state.settings.defaultCustomer) {
-          customerSelect.value = this.state.settings.defaultCustomer;
+          const defaultParsed = this.parseNameAndRate(this.state.settings.defaultCustomer);
+          customerSelect.value = defaultParsed.name;
         }
       }
       
       if (projectSelect) {
         projectSelect.innerHTML = '<option value="">Select Project</option>' +
-          this.state.projects.map(p => `<option value="${p}">${p}</option>`).join('');
+          this.state.projects.map(p => {
+            const parsed = this.parseNameAndRate(p);
+            return `<option value="${parsed.name}">${parsed.name}</option>`;
+          }).join('');
         
         if (this.state.settings.defaultProject) {
-          projectSelect.value = this.state.settings.defaultProject;
+          const defaultParsed = this.parseNameAndRate(this.state.settings.defaultProject);
+          projectSelect.value = defaultParsed.name;
         }
       }
     } catch (error) {
@@ -1154,12 +1184,16 @@ class TimeTracker {
   renderGroupedTasks(groupedTasks) {
     return groupedTasks.map(group => {
       const dateHeader = this.formatDateHeader(group.date, group.totalDuration);
-      const tasksHTML = group.tasks.map(task => `
+      const tasksHTML = group.tasks.map(task => {
+        const customerName = task.customer ? this.parseNameAndRate(task.customer).name : 'No Customer';
+        const projectName = task.project ? this.parseNameAndRate(task.project).name : 'No Project';
+        
+        return `
         <div class="task-item" data-task-id="${task.id}">
           <div class="task-item-info">
             <div class="task-item-title">${task.title}</div>
             <div class="task-item-meta">
-              ${task.customer || 'No Customer'} • ${task.project || 'No Project'}
+              ${customerName} • ${projectName}
               ${task.billable ? '<span class="billable-indicator">💰</span>' : ''}
             </div>
           </div>
@@ -1172,8 +1206,8 @@ class TimeTracker {
             </button>
             <button class="task-delete-btn" data-task-id="${task.id}" title="Delete task">🗑️</button>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
       
       return `
         <div class="task-group">
@@ -1328,20 +1362,42 @@ class TimeTracker {
   getHourlyRate(customer, project) {
     // First check for project rate
     if (project) {
+      // Check exact match first (for backwards compatibility)
       for (const projectStr of this.state.projects) {
         const parsed = this.parseNameAndRate(projectStr);
         if (parsed.name === project && parsed.rate !== null) {
           return parsed.rate;
         }
       }
+      
+      // Also check if the project name is actually the full string with rate
+      for (const projectStr of this.state.projects) {
+        if (projectStr === project) {
+          const parsed = this.parseNameAndRate(projectStr);
+          if (parsed.rate !== null) {
+            return parsed.rate;
+          }
+        }
+      }
     }
     
     // Then check for customer rate
     if (customer) {
+      // Check exact match first (for backwards compatibility)
       for (const customerStr of this.state.customers) {
         const parsed = this.parseNameAndRate(customerStr);
         if (parsed.name === customer && parsed.rate !== null) {
           return parsed.rate;
+        }
+      }
+      
+      // Also check if the customer name is actually the full string with rate
+      for (const customerStr of this.state.customers) {
+        if (customerStr === customer) {
+          const parsed = this.parseNameAndRate(customerStr);
+          if (parsed.rate !== null) {
+            return parsed.rate;
+          }
         }
       }
     }
@@ -1365,7 +1421,7 @@ class TimeTracker {
     if (amount === null || amount === undefined || isNaN(amount)) return '—';
     
     const currencyCode = currency || this.state.settings.currency || 'EUR';
-    const formatTemplate = format || this.state.settings.currencyFormat || '1234.56 €';
+    const formatTemplate = format || this.state.settings.currencyFormat || '1,234.56 €';
     
     // Currency symbols mapping
     const symbols = {
@@ -1439,20 +1495,50 @@ class TimeTracker {
     };
     
     const symbol = symbols[currencyCode] || currencyCode;
-    const formattedAmount = amount.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
     
-    // Apply format template
-    if (formatTemplate.includes('€1,234.56') || formatTemplate.startsWith(symbol)) {
-      return `${symbol}${formattedAmount}`;
-    } else if (formatTemplate.includes('1,234.56 EUR') || formatTemplate.endsWith(' ' + currencyCode)) {
-      return `${formattedAmount} ${currencyCode}`;
-    } else if (formatTemplate.includes('EUR 1,234.56') || formatTemplate.startsWith(currencyCode + ' ')) {
-      return `${currencyCode} ${formattedAmount}`;
+    // Format number based on template
+    let formattedAmount;
+    if (formatTemplate.includes('1.234,56')) {
+      // Dot thousands, comma decimal (e.g., German/European format)
+      formattedAmount = amount.toLocaleString('de-DE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    } else if (formatTemplate.includes('1 234,56')) {
+      // Space thousands, comma decimal (e.g., French format)
+      formattedAmount = amount.toLocaleString('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    } else if (formatTemplate.includes("1'234.56")) {
+      // Apostrophe thousands, dot decimal (e.g., Swiss format)
+      formattedAmount = amount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).replace(/,/g, "'");
+    } else if (formatTemplate.includes('1234.56')) {
+      // No thousands separator
+      formattedAmount = amount.toFixed(2);
     } else {
-      // Default: amount + symbol
+      // Default: comma thousands, dot decimal (e.g., US format)
+      formattedAmount = amount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+    
+    // Apply currency symbol/code placement
+    if (formatTemplate.startsWith('€') || formatTemplate.startsWith(symbol)) {
+      // Symbol before amount
+      return `${symbol}${formattedAmount}`;
+    } else if (formatTemplate.startsWith('EUR') || formatTemplate.startsWith(currencyCode + ' ')) {
+      // Currency code before amount
+      return `${currencyCode} ${formattedAmount}`;
+    } else if (formatTemplate.endsWith(' EUR') || formatTemplate.endsWith(' ' + currencyCode)) {
+      // Currency code after amount
+      return `${formattedAmount} ${currencyCode}`;
+    } else {
+      // Default: symbol after amount
       return `${formattedAmount} ${symbol}`;
     }
   }

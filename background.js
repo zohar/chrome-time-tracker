@@ -13,7 +13,7 @@ class BackgroundService {
       webhookUrl: '',
       webhookEnabled: false,
       currency: 'EUR',
-      currencyFormat: '1234.56 €'
+      currencyFormat: '1,234.56 €'
     };
     this.timerInterval = null;
     this.isInitialized = false;
@@ -833,20 +833,42 @@ class BackgroundService {
   getHourlyRate(customer, project) {
     // First check for project rate
     if (project) {
+      // Check exact match first (for backwards compatibility)
       for (const projectStr of this.projects) {
         const parsed = this.parseNameAndRate(projectStr);
         if (parsed.name === project && parsed.rate !== null) {
           return parsed.rate;
         }
       }
+      
+      // Also check if the project name is actually the full string with rate
+      for (const projectStr of this.projects) {
+        if (projectStr === project) {
+          const parsed = this.parseNameAndRate(projectStr);
+          if (parsed.rate !== null) {
+            return parsed.rate;
+          }
+        }
+      }
     }
     
     // Then check for customer rate
     if (customer) {
+      // Check exact match first (for backwards compatibility)
       for (const customerStr of this.customers) {
         const parsed = this.parseNameAndRate(customerStr);
         if (parsed.name === customer && parsed.rate !== null) {
           return parsed.rate;
+        }
+      }
+      
+      // Also check if the customer name is actually the full string with rate
+      for (const customerStr of this.customers) {
+        if (customerStr === customer) {
+          const parsed = this.parseNameAndRate(customerStr);
+          if (parsed.rate !== null) {
+            return parsed.rate;
+          }
         }
       }
     }
@@ -876,7 +898,7 @@ class BackgroundService {
     if (amount === null || amount === undefined || isNaN(amount)) return '';
     
     const currencyCode = currency || this.settings.currency || 'EUR';
-    const formatTemplate = format || this.settings.currencyFormat || '1234.56 €';
+    const formatTemplate = format || this.settings.currencyFormat || '1,234.56 €';
     
     // Currency symbols mapping
     const symbols = {
@@ -950,20 +972,50 @@ class BackgroundService {
     };
     
     const symbol = symbols[currencyCode] || currencyCode;
-    const formattedAmount = amount.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
     
-    // Apply format template
-    if (formatTemplate.includes('€1,234.56') || formatTemplate.startsWith(symbol)) {
-      return `${symbol}${formattedAmount}`;
-    } else if (formatTemplate.includes('1,234.56 EUR') || formatTemplate.endsWith(' ' + currencyCode)) {
-      return `${formattedAmount} ${currencyCode}`;
-    } else if (formatTemplate.includes('EUR 1,234.56') || formatTemplate.startsWith(currencyCode + ' ')) {
-      return `${currencyCode} ${formattedAmount}`;
+    // Format number based on template
+    let formattedAmount;
+    if (formatTemplate.includes('1.234,56')) {
+      // Dot thousands, comma decimal (e.g., German/European format)
+      formattedAmount = amount.toLocaleString('de-DE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    } else if (formatTemplate.includes('1 234,56')) {
+      // Space thousands, comma decimal (e.g., French format)
+      formattedAmount = amount.toLocaleString('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    } else if (formatTemplate.includes("1'234.56")) {
+      // Apostrophe thousands, dot decimal (e.g., Swiss format)
+      formattedAmount = amount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).replace(/,/g, "'");
+    } else if (formatTemplate.includes('1234.56')) {
+      // No thousands separator
+      formattedAmount = amount.toFixed(2);
     } else {
-      // Default: amount + symbol
+      // Default: comma thousands, dot decimal (e.g., US format)
+      formattedAmount = amount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+    
+    // Apply currency symbol/code placement
+    if (formatTemplate.startsWith('€') || formatTemplate.startsWith(symbol)) {
+      // Symbol before amount
+      return `${symbol}${formattedAmount}`;
+    } else if (formatTemplate.startsWith('EUR') || formatTemplate.startsWith(currencyCode + ' ')) {
+      // Currency code before amount
+      return `${currencyCode} ${formattedAmount}`;
+    } else if (formatTemplate.endsWith(' EUR') || formatTemplate.endsWith(' ' + currencyCode)) {
+      // Currency code after amount
+      return `${formattedAmount} ${currencyCode}`;
+    } else {
+      // Default: symbol after amount
       return `${formattedAmount} ${symbol}`;
     }
   }
