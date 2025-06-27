@@ -23,7 +23,22 @@ body {
 
 .header {
   margin-bottom: 40px;
-  text-align: center;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.header-logo {
+  height: 156px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.header-text {
+  flex: 1;
 }
 
 .header h1 {
@@ -414,6 +429,16 @@ textarea.form-control {
 @media (max-width: 768px) {
   .container {
     padding: 16px;
+  }
+  
+  .header-brand {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+  }
+  
+  .header-logo {
+    height: 80px;
   }
   
   .form-actions {
