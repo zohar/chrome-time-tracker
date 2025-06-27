@@ -30,10 +30,18 @@ A professional time tracking Chrome extension with task management, reporting, a
 
 ## Installation
 
+### For Development & Testing
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable "Developer mode" in the top right
 3. Click "Load unpacked" and select the extension directory
 4. The Open Time Tracker icon will appear in your extension toolbar
+
+### For Distribution (Chrome Web Store Ready)
+1. Run `npm run build:extension` to create a clean package
+2. The `extension-build/` folder contains only the necessary files (322KB)
+3. Zip the `extension-build/` folder for Chrome Web Store submission
+
+**Note**: The development directory is ~139MB due to `node_modules`, but the packaged extension is only 322KB when built properly.
 
 ## Usage
 
@@ -112,6 +120,37 @@ This extension is built with:
 - Vanilla JavaScript
 - Chrome Extension APIs
 - Local storage for data persistence
+
+### Build Process
+
+The project includes development dependencies (React, Vite, TypeScript, ESLint) for potential future enhancements, but the core extension uses vanilla JavaScript.
+
+**Development Commands:**
+```bash
+npm install          # Install development dependencies
+npm run lint         # Run ESLint checks
+npm run build:extension  # Create distribution package
+```
+
+**Package Size Optimization:**
+- **Development Directory**: ~139MB (includes node_modules, config files)
+- **Production Package**: 322KB (essential files only)
+- **Files Included in Package**: manifest.json, background.js, popup files, options files, icons
+- **Files Excluded**: node_modules, src/, dist/, config files, documentation
+
+**Extension Package Contents:**
+```
+extension-build/
+├── manifest.json
+├── background.js
+├── popup.html, popup.js, popup.css
+├── options.html, options.js, options.css
+└── icons/
+    ├── icon-16.png, icon-32.png, icon-48.png, icon-128.png
+    ├── logo.png
+    ├── help.svg
+    └── play.svg
+```
 
 ## Support
 
