@@ -282,8 +282,7 @@ class TimeTracker {
           this.handleEditTimeChange();
         });
         
-        // Add keyboard navigation for duration field
-        editDuration.addEventListener('keydown', (e) => this.handleDurationKeyboard(e));
+        // Duration field now uses native time input - no custom keyboard handling needed
         
         console.log('Edit modal time listeners set up successfully');
       }
@@ -292,88 +291,6 @@ class TimeTracker {
     }
   }
 
-  handleDurationKeyboard(e) {
-    try {
-      const input = e.target;
-      const value = input.value;
-      const cursorPos = input.selectionStart;
-      
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        
-        // Parse current duration
-        const match = value.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
-        if (!match) return;
-        
-        let hours = parseInt(match[1], 10);
-        let minutes = parseInt(match[2], 10);
-        let seconds = parseInt(match[3], 10);
-        
-        const increment = e.key === 'ArrowUp' ? 1 : -1;
-        
-        // Determine which part to modify based on cursor position
-        // Format: HH:MM:SS (positions 0-1: hours, 3-4: minutes, 6-7: seconds)
-        if (cursorPos <= 2) {
-          // Hours section (positions 0-2, including the colon)
-          hours = Math.max(0, Math.min(23, hours + increment));
-        } else if (cursorPos <= 5) {
-          // Minutes section (positions 3-5, including the colon)
-          minutes += increment;
-          if (minutes >= 60) {
-            minutes = 0;
-            hours = Math.min(23, hours + 1);
-          } else if (minutes < 0) {
-            minutes = 59;
-            hours = Math.max(0, hours - 1);
-          }
-        } else {
-          // Seconds section (positions 6-7)
-          seconds += increment;
-          if (seconds >= 60) {
-            seconds = 0;
-            minutes += 1;
-            if (minutes >= 60) {
-              minutes = 0;
-              hours = Math.min(23, hours + 1);
-            }
-          } else if (seconds < 0) {
-            seconds = 59;
-            minutes -= 1;
-            if (minutes < 0) {
-              minutes = 59;
-              hours = Math.max(0, hours - 1);
-            }
-          }
-        }
-        
-        // Enforce 23:59:59 maximum
-        if (hours >= 23) {
-          hours = 23;
-          if (minutes >= 59) {
-            minutes = 59;
-            if (seconds >= 59) {
-              seconds = 59;
-            }
-          }
-        }
-        
-        // Update the input value
-        const newValue = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        input.value = newValue;
-        
-        // Restore cursor position
-        setTimeout(() => {
-          input.setSelectionRange(cursorPos, cursorPos);
-        }, 0);
-        
-        // Mark as duration edited and trigger the time change handler
-        this.lastEditedField = 'duration';
-        this.handleEditTimeChange();
-      }
-    } catch (error) {
-      console.error('Error handling duration keyboard:', error);
-    }
-  }
 
   handleEditTimeChange() {
     try {
@@ -828,9 +745,15 @@ class TimeTracker {
         needsSettingsUpdate = true;
       }
       
-      // Calculate final duration from timestamps, not from duration field
+      // Calculate final duration based on task type
       let finalDuration = duration;
-      if (startTime && endTime) {
+      
+      if (this.editingTask.taskType === 'current') {
+        // For running tasks: let background handle timing - just send 0 duration
+        finalDuration = 0;
+        console.log('Running task: sending 0 duration, background will handle timing');
+      } else if (startTime && endTime) {
+        // For completed tasks: calculate from timestamps
         let calculatedDuration = endTime.getTime() - startTime.getTime();
         // Handle cross-midnight scenarios
         if (calculatedDuration < 0) {
@@ -846,7 +769,7 @@ class TimeTracker {
         project,
         billable,
         startTime: startTime || this.editingTask.startTime,
-        endTime: endTime,
+        endTime: this.editingTask.taskType === 'current' ? null : endTime, // Running tasks have no end time
         duration: finalDuration
       };
       
@@ -974,6 +897,7 @@ class TimeTracker {
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     
+    // Return in HH:MM:SS format for time input
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
@@ -985,8 +909,8 @@ class TimeTracker {
     const minutes = parseInt(match[2], 10);
     const seconds = parseInt(match[3], 10);
     
-    // Validate ranges
-    if (hours > 23 || minutes >= 60 || seconds >= 60) return null;
+    // Validate ranges (allow longer hours for duration)
+    if (minutes >= 60 || seconds >= 60) return null;
     
     return (hours * 3600 + minutes * 60 + seconds) * 1000;
   }

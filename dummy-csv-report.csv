@@ -1,0 +1,53 @@
+Task Title,Customer,Project,Billable,Start Time,End Time,Duration (seconds)
+n8n crawl and generate maps webhooks,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-14T10:18:57.000Z,2025-06-14T12:01:47.000Z,6170
+n8n crawl and generate maps webhooks,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-14T08:00:00.000Z,2025-06-14T10:18:57.000Z,8337
+Writing a PRD,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-13T17:35:16.000Z,2025-06-13T18:45:16.000Z,4200
+Writing a PRD,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-13T16:39:22.000Z,2025-06-13T17:35:16.000Z,3354
+Crawling UI (frontend),Open Strategy Partners GmbH,Value Map Automation,,2025-06-13T15:24:19.000Z,2025-06-13T16:39:22.000Z,4503
+Crawling UI (frontend),Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-13T13:00:00.000Z,2025-06-13T15:24:19.000Z,8659
+Crawl UI frontend session,Open Strategy Partners GmbH,Value Map Automation,,2025-06-13T08:00:00.000Z,2025-06-13T13:00:00.000Z,18000
+Crawling UI (frontend),Open Strategy Partners GmbH,Value Map Automation,,2025-06-12T14:46:35.000Z,2025-06-12T17:11:52.000Z,8717
+Crawling UI (frontend),Open Strategy Partners GmbH,Value Map Automation,,2025-06-12T13:48:31.000Z,2025-06-12T14:46:35.000Z,3484
+Crawling UI (frontend),Open Strategy Partners GmbH,Value Map Automation,,2025-06-12T10:50:51.000Z,2025-06-12T13:48:31.000Z,10660
+Crawling UI (frontend),Open Strategy Partners GmbH,Value Map Automation,,2025-06-12T09:27:19.000Z,2025-06-12T10:50:51.000Z,5012
+Crawling UI (frontend),Open Strategy Partners GmbH,Value Map Automation,,2025-06-12T09:21:16.000Z,2025-06-12T09:27:19.000Z,363
+Crawling UI (frontend),Open Strategy Partners GmbH,Value Map Automation,,2025-06-12T08:00:00.000Z,2025-06-12T09:21:16.000Z,4876
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-11T08:00:00.000Z,2025-06-11T12:01:05.000Z,14465
+Firecrawl 1 month Extract subscription,Open Strategy Partners GmbH,Value Map Automation,,2025-06-10T13:43:33.000Z,2025-06-10T15:03:33.000Z,4800
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-10T13:40:30.000Z,2025-06-10T13:43:33.000Z,183
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-10T12:16:45.000Z,2025-06-10T13:40:30.000Z,5025
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-10T09:54:00.000Z,2025-06-10T12:16:45.000Z,8565
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-10T08:00:00.000Z,2025-06-10T09:54:00.000Z,6840
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-08T08:10:11.000Z,2025-06-08T09:32:34.000Z,4943
+Reporting,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-08T08:00:00.000Z,2025-06-08T08:10:11.000Z,611
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-07T09:04:21.000Z,2025-06-07T09:40:45.000Z,2184
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-07T08:33:39.000Z,2025-06-07T09:04:21.000Z,1842
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-07T08:29:01.000Z,2025-06-07T08:33:39.000Z,278
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-07T08:11:37.000Z,2025-06-07T08:29:01.000Z,1044
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-07T08:07:42.000Z,2025-06-07T08:11:37.000Z,235
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,,2025-06-07T08:00:00.000Z,2025-06-07T08:07:42.000Z,462
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-06T10:51:19.000Z,2025-06-06T11:50:32.000Z,3553
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-06T10:13:51.000Z,2025-06-06T10:51:19.000Z,2248
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-06T09:07:51.000Z,2025-06-06T10:13:51.000Z,3960
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-06T08:35:30.000Z,2025-06-06T09:07:51.000Z,1941
+Automate the crawling,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-06T08:00:00.000Z,2025-06-06T08:35:30.000Z,2130
+Vectorize the Feature Maps,Open Strategy Partners GmbH,Value Map Automation,,2025-06-05T08:32:13.000Z,2025-06-05T10:35:58.000Z,7425
+Vectorize the Feature Maps,Open Strategy Partners GmbH,Value Map Automation,,2025-06-05T08:00:00.000Z,2025-06-05T08:32:13.000Z,1933
+Architecture and planning,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-04T10:38:32.000Z,2025-06-04T11:22:14.000Z,2622
+Meeting with Robert,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-04T10:08:32.000Z,2025-06-04T10:38:32.000Z,1800
+Meeting with Robert,Open Strategy Partners GmbH,Value Map Automation,,2025-06-04T09:37:57.000Z,2025-06-04T10:08:32.000Z,1835
+Architecture and planning,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-04T08:00:00.000Z,2025-06-04T09:37:57.000Z,5877
+QA on latest OSP's content analysis,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-03T14:34:46.000Z,2025-06-03T15:38:46.000Z,3840
+QA on latest OSP's content analysis,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-03T14:10:14.000Z,2025-06-03T14:34:46.000Z,1472
+inspect Vectors DB options,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-03T11:22:39.000Z,2025-06-03T14:10:14.000Z,10055
+Architecture and planning,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-03T10:21:52.000Z,2025-06-03T11:22:39.000Z,3647
+Architecture and planning,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-03T09:32:49.000Z,2025-06-03T10:21:52.000Z,2943
+Architecture and planning,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-03T09:30:36.000Z,2025-06-03T09:32:49.000Z,133
+Vectorize the Feature Maps,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-03T08:33:16.000Z,2025-06-03T09:30:36.000Z,3440
+Vectorize the Feature Maps,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-03T08:00:00.000Z,2025-06-03T08:33:16.000Z,1996
+Weekly meeting 02/6/25,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-02T10:07:35.000Z,2025-06-02T11:01:03.000Z,3208
+Update models and rerun extraction,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-02T09:53:31.000Z,2025-06-02T10:07:35.000Z,844
+Update models and rerun extraction,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-02T09:22:40.000Z,2025-06-02T09:53:31.000Z,1851
+Figure out a way to tackle the rate limit problem,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-02T08:33:00.000Z,2025-06-02T09:22:40.000Z,2980
+Figure out a way to tackle the rate limit problem,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-02T08:18:00.000Z,2025-06-02T08:33:00.000Z,900
+Figure out a way to tackle the rate limit problem,Open Strategy Partners GmbH,Value Map Automation,Yes,2025-06-02T08:00:00.000Z,2025-06-02T08:18:00.000Z,1080
