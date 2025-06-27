@@ -411,8 +411,19 @@ class BackgroundService {
         return { success: false, error: 'No active task to stop' };
       }
       
+      // Validate start time before calculation
+      if (!this.currentTask.startTime || isNaN(this.currentTask.startTime.getTime())) {
+        return { success: false, error: 'Invalid task start time - cannot calculate duration' };
+      }
+      
       const currentTime = Date.now();
       const sessionDuration = currentTime - this.currentTask.startTime.getTime();
+      
+      // Validate session duration
+      if (isNaN(sessionDuration) || sessionDuration < 0) {
+        return { success: false, error: 'Invalid duration calculation' };
+      }
+      
       this.currentTask.duration += sessionDuration;
       this.currentTask.endTime = new Date();
       
@@ -490,13 +501,22 @@ class BackgroundService {
       
       if (taskType === 'current' && this.currentTask && this.currentTask.id === task.id) {
         // Update current task - for running tasks, reset timing to start fresh from the edited start time
+        let newStartTime = this.currentTask.startTime;
+        
+        if (task.startTime) {
+          const parsedStartTime = new Date(task.startTime);
+          if (!isNaN(parsedStartTime.getTime())) {
+            newStartTime = parsedStartTime;
+          }
+        }
+        
         this.currentTask = {
           ...this.currentTask,
           title: task.title,
           customer: task.customer,
           project: task.project,
           billable: task.billable,
-          startTime: task.startTime ? new Date(task.startTime) : this.currentTask.startTime,
+          startTime: newStartTime,
           duration: 0  // Reset duration - task continues running from the new start time
         };
         
