@@ -190,7 +190,7 @@
             </span>
           </div>
           <input type="file" id="importData" class="form-control" accept=".csv">
-          <small class="help-text">Import tasks from CSV file</small>
+          <small class="help-text">Select CSV file to import</small>
           
           <div class="import-options" style="margin-top: 10px;">
             <label><strong>Import Mode:</strong></label>
@@ -212,6 +212,11 @@
                 <span class="radio-text"><strong>Replace</strong> - Clear all existing tasks and import fresh</span>
               </label>
             </div>
+          </div>
+          
+          <div style="margin-top: 15px;">
+            <button id="importBtn" class="btn btn-primary" disabled>Import Tasks</button>
+            <small class="help-text" style="display: block; margin-top: 5px;">Select a file first, then click to import</small>
           </div>
         </div>
       </div>

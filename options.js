@@ -66,7 +66,8 @@ class SettingsManager {
     
     // Data management
     document.getElementById('exportAllData').addEventListener('click', () => this.exportAllData());
-    document.getElementById('importData').addEventListener('change', (e) => this.importData(e));
+    document.getElementById('importData').addEventListener('change', (e) => this.handleFileSelection(e));
+    document.getElementById('importBtn').addEventListener('click', () => this.importData());
     document.getElementById('clearAllData').addEventListener('click', () => this.clearAllData());
     
     // Name migration tools
@@ -268,9 +269,27 @@ class SettingsManager {
     return [headers, ...rows].map(row => row.join(',')).join('\n');
   }
 
-  async importData(event) {
+  handleFileSelection(event) {
     const file = event.target.files[0];
-    if (!file) return;
+    const importBtn = document.getElementById('importBtn');
+    
+    if (file) {
+      importBtn.disabled = false;
+      importBtn.textContent = `Import ${file.name}`;
+    } else {
+      importBtn.disabled = true;
+      importBtn.textContent = 'Import Tasks';
+    }
+  }
+
+  async importData() {
+    const fileInput = document.getElementById('importData');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+      this.showSaveStatus('Please select a CSV file first.', 'error');
+      return;
+    }
 
     // Get selected import mode
     const importMode = document.querySelector('input[name="importMode"]:checked').value;
@@ -387,9 +406,18 @@ class SettingsManager {
           }
           
           // Parse duration
-          const duration = parseInt(durationStr) * 1000; // Convert seconds to milliseconds
-          if (isNaN(duration) || duration < 0) {
+          const durationSeconds = parseInt(durationStr);
+          if (isNaN(durationSeconds) || durationSeconds < 0) {
             errors.push(`Line ${i + 1}: Invalid duration "${durationStr}". Expected positive number in seconds`);
+            continue;
+          }
+          
+          // Convert seconds to milliseconds
+          const duration = durationSeconds * 1000;
+          
+          // Warning for very short durations (less than 1 second)
+          if (durationSeconds === 0) {
+            errors.push(`Line ${i + 1}: Duration is 0 seconds. This may indicate a data issue.`);
             continue;
           }
           
@@ -510,8 +538,11 @@ class SettingsManager {
       this.showSaveStatus(`Import failed: ${error.message}`, 'error');
     }
     
-    // Reset file input
-    event.target.value = '';
+    // Reset file input and button
+    const importBtn = document.getElementById('importBtn');
+    fileInput.value = '';
+    importBtn.disabled = true;
+    importBtn.textContent = 'Import Tasks';
   }
 
   // Enhanced date parsing function
@@ -603,6 +634,9 @@ class SettingsManager {
     statusEl.textContent = message;
     statusEl.className = `save-status ${type}`;
     statusEl.style.display = 'block';
+    
+    // Scroll to make status message visible
+    statusEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     
     setTimeout(() => {
       statusEl.style.display = 'none';
