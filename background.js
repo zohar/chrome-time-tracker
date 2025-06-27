@@ -20,7 +20,6 @@ class BackgroundService {
   }
 
   async init() {
-    console.log('Background service initializing...');
     try {
       await this.loadData();
       this.setupMessageListener();
@@ -28,7 +27,6 @@ class BackgroundService {
       this.startTimer();
       this.updateIcon('idle');
       this.isInitialized = true;
-      console.log('Background service initialized successfully');
     } catch (error) {
       console.error('Background service initialization failed:', error);
       // Try to initialize with defaults if loading fails
@@ -44,19 +42,14 @@ class BackgroundService {
     // Listen for changes in chrome.storage.local
     chrome.storage.onChanged.addListener(async (changes, namespace) => {
       if (namespace === 'local') {
-        console.log('Background: Storage changes detected:', Object.keys(changes));
-        
         // Check if tasks were changed (e.g., by options.js during import)
         if (changes.tasks) {
-          console.log('Background: Tasks changed in storage, old count:', this.tasks.length, 'new count:', changes.tasks.newValue?.length || 0);
           try {
             await this.loadData();
-            console.log('Background: Data reloaded after storage change, tasks count:', this.tasks.length);
             
             // Force notification to popup with a slight delay to ensure popup is ready
             setTimeout(() => {
               this.notifyPopupStateChange();
-              console.log('Background: Notified popup of task changes');
             }, 100);
           } catch (error) {
             console.error('Background: Error reloading data after storage change:', error);
@@ -65,7 +58,6 @@ class BackgroundService {
         
         // Check if other data changed
         if (changes.customers || changes.projects || changes.settings) {
-          console.log('Background: Settings/customers/projects changed, reloading...');
           try {
             await this.loadData();
             this.notifyPopupStateChange();
@@ -88,14 +80,6 @@ class BackgroundService {
         'settings'
       ]);
       
-      console.log('Background: Loading data from storage:', {
-        currentTask: !!data.currentTask,
-        pausedTask: !!data.pausedTask,
-        tasksCount: data.tasks?.length || 0,
-        customersCount: data.customers?.length || 0,
-        projectsCount: data.projects?.length || 0
-      });
-      
       this.currentTask = data.currentTask || null;
       this.pausedTask = data.pausedTask || null;
       this.tasks = data.tasks || [];
@@ -112,7 +96,6 @@ class BackgroundService {
         } else {
           this.currentTask.startTime = startTime;
           this.currentTask.duration = Number(this.currentTask.duration) || 0;
-          console.log('Background: Restored current task:', this.currentTask);
         }
       }
       
@@ -124,7 +107,6 @@ class BackgroundService {
         } else {
           this.pausedTask.startTime = startTime;
           this.pausedTask.duration = Number(this.pausedTask.duration) || 0;
-          console.log('Background: Restored paused task:', this.pausedTask);
         }
       }
       
@@ -153,7 +135,6 @@ class BackgroundService {
         console.warn(`Background: Filtered out ${originalTaskCount - this.tasks.length} invalid tasks`);
       }
 
-      console.log(`Background: Successfully loaded ${this.tasks.length} tasks`);
 
       // Set appropriate icon state
       if (this.currentTask) {
@@ -204,7 +185,6 @@ class BackgroundService {
       };
       
       await chrome.storage.local.set(dataToSave);
-      console.log('Background: Data saved successfully, tasks count:', this.tasks.length);
     } catch (error) {
       console.error('Background: Error saving data:', error);
     }
@@ -212,8 +192,6 @@ class BackgroundService {
 
   setupMessageListener() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      console.log('Background: Received message:', message);
-      
       // Ensure we're initialized before handling messages
       if (!this.isInitialized && message.action !== 'getInitialState') {
         console.warn('Background: Service not initialized, deferring message');
@@ -283,7 +261,6 @@ class BackgroundService {
       // For async operations, handle them and send response
       if (['getInitialState', 'startTask', 'restartTask', 'pauseTask', 'stopTask', 'resumeTask', 'stopPausedTask', 'updateTask', 'deleteTask', 'exportTasks', 'updateSettings', 'reloadData'].includes(message.action)) {
         handleAsync().then(response => {
-          console.log('Background: Sending response:', response);
           sendResponse(response);
         }).catch(error => {
           console.error('Background: Error in async handler:', error);
@@ -316,13 +293,6 @@ class BackgroundService {
         settings: this.settings
       };
       
-      console.log('Background: Sending initial state:', {
-        currentTask: !!state.currentTask,
-        pausedTask: !!state.pausedTask,
-        tasksCount: state.tasks.length,
-        customersCount: state.customers.length,
-        projectsCount: state.projects.length
-      });
       return { success: true, data: state };
     } catch (error) {
       console.error('Background: Error getting initial state:', error);
@@ -332,7 +302,6 @@ class BackgroundService {
 
   async handleReloadData() {
     try {
-      console.log('Background: Explicit reload data request received');
       await this.loadData();
       this.notifyPopupStateChange();
       return { success: true, data: { tasksCount: this.tasks.length } };
@@ -354,8 +323,6 @@ class BackgroundService {
         duration: 0
       };
       
-      console.log('Background: Started task:', this.currentTask);
-      
       await this.saveData();
       this.updateIcon('active');
       this.notifyPopupStateChange();
@@ -376,8 +343,6 @@ class BackgroundService {
         this.currentTask.duration += sessionDuration;
         this.currentTask.endTime = new Date();
         
-        console.log('Background: Stopping current task before restart:', this.currentTask);
-        
         this.tasks.unshift(this.currentTask);
         
         // Send webhook if enabled for the stopped task
@@ -391,7 +356,6 @@ class BackgroundService {
         this.pausedTask.endTime = new Date();
         this.tasks.unshift(this.pausedTask);
         
-        console.log('Background: Stopping paused task before restart:', this.pausedTask);
         this.pausedTask = null;
       }
       
@@ -405,8 +369,6 @@ class BackgroundService {
         startTime: new Date(),
         duration: 0
       };
-      
-      console.log('Background: Restarted task:', this.currentTask);
       
       await this.saveData();
       this.updateIcon('active');
@@ -432,8 +394,6 @@ class BackgroundService {
       this.pausedTask = { ...this.currentTask };
       this.currentTask = null;
       
-      console.log('Background: Paused task:', this.pausedTask);
-      
       await this.saveData();
       this.updateIcon('paused');
       this.notifyPopupStateChange();
@@ -455,8 +415,6 @@ class BackgroundService {
       const sessionDuration = currentTime - this.currentTask.startTime.getTime();
       this.currentTask.duration += sessionDuration;
       this.currentTask.endTime = new Date();
-      
-      console.log('Background: Stopped task:', this.currentTask);
       
       this.tasks.unshift(this.currentTask);
       const completedTask = this.currentTask;
@@ -492,8 +450,6 @@ class BackgroundService {
       };
       
       this.pausedTask = null;
-      
-      console.log('Background: Resumed task:', this.currentTask);
       
       await this.saveData();
       this.updateIcon('active');
@@ -532,8 +488,6 @@ class BackgroundService {
     try {
       const { task, taskType } = data;
       
-      console.log('Background: Updating task:', { task, taskType });
-      
       if (taskType === 'current' && this.currentTask && this.currentTask.id === task.id) {
         // Update current task - for running tasks, reset timing to start fresh from the edited start time
         this.currentTask = {
@@ -546,8 +500,6 @@ class BackgroundService {
           duration: 0  // Reset duration - task continues running from the new start time
         };
         
-        console.log('Background: Updated current task (reset timing):', this.currentTask);
-        
       } else if (taskType === 'paused' && this.pausedTask && this.pausedTask.id === task.id) {
         // Update paused task - allow all fields to be updated
         this.pausedTask = {
@@ -557,8 +509,6 @@ class BackgroundService {
           endTime: task.endTime ? new Date(task.endTime) : this.pausedTask.endTime,
           duration: Number(task.duration) || 0
         };
-        
-        console.log('Background: Updated paused task:', this.pausedTask);
         
       } else if (taskType === 'completed') {
         // Update completed task
@@ -571,7 +521,6 @@ class BackgroundService {
             duration: Number(task.duration) || 0
           };
           
-          console.log('Background: Updated completed task:', this.tasks[taskIndex]);
         } else {
           console.warn('Background: Task not found for update:', task.id);
           return { success: false, error: 'Task not found' };
@@ -584,7 +533,6 @@ class BackgroundService {
       await this.saveData();
       this.notifyPopupStateChange();
       
-      console.log('Background: Task update completed successfully');
       return { success: true };
     } catch (error) {
       console.error('Background: Error updating task:', error);
@@ -595,8 +543,6 @@ class BackgroundService {
   async handleDeleteTask(data) {
     try {
       const { taskId, taskType } = data;
-      
-      console.log('Background: Deleting task:', { taskId, taskType });
       
       if (taskType === 'current' && this.currentTask && this.currentTask.id === taskId) {
         this.currentTask = null;
@@ -622,7 +568,6 @@ class BackgroundService {
       await this.saveData();
       this.notifyPopupStateChange();
       
-      console.log('Background: Task deleted successfully');
       return { success: true };
     } catch (error) {
       console.error('Background: Error deleting task:', error);
@@ -666,7 +611,6 @@ class BackgroundService {
       clearInterval(this.timerInterval);
     }
     
-    console.log('Background: Starting timer...');
     this.timerInterval = setInterval(() => {
       if (this.currentTask) {
         // Periodically save current task state to prevent data loss
@@ -689,18 +633,11 @@ class BackgroundService {
       settings: this.settings
     };
     
-    console.log('Background: Notifying popup of state change:', {
-      currentTask: !!stateData.currentTask,
-      pausedTask: !!stateData.pausedTask,
-      tasksCount: stateData.tasks.length
-    });
-    
     chrome.runtime.sendMessage({
       action: 'stateChanged',
       data: stateData
     }).catch(() => {
       // Popup is closed, ignore error
-      console.log('Background: Popup not available for state change notification');
     });
   }
 
@@ -801,7 +738,6 @@ class BackgroundService {
           duration: task.duration
         })
       });
-      console.log('Background: Webhook sent successfully');
     } catch (error) {
       console.error('Background: Webhook failed:', error);
     }
@@ -848,12 +784,10 @@ class BackgroundService {
 }
 
 // Initialize background service
-console.log('Background script loading...');
 const backgroundService = new BackgroundService();
 
 // Handle extension startup
 chrome.runtime.onStartup.addListener(() => {
-  console.log('Extension startup detected');
   if (!backgroundService.isInitialized) {
     backgroundService.init();
   }
@@ -861,7 +795,6 @@ chrome.runtime.onStartup.addListener(() => {
 
 // Handle extension installation
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Extension installed/updated');
   if (!backgroundService.isInitialized) {
     backgroundService.init();
   }
