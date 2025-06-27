@@ -282,12 +282,20 @@ body {
 .summary-item {
   flex: 1;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 60px;
 }
 
 .summary-label {
   font-size: 12px;
   color: #6b7280;
-  margin-bottom: 4px;
+  margin-bottom: auto;
+  line-height: 1.2;
+  align-self: flex-start;
+  text-align: center;
+  width: 100%;
 }
 
 .summary-value {
@@ -295,6 +303,10 @@ body {
   font-weight: 600;
   font-family: 'SF Mono', Monaco, monospace;
   color: #111827;
+  margin-top: auto;
+  align-self: flex-end;
+  text-align: center;
+  width: 100%;
 }
 
 .recent-tasks {
