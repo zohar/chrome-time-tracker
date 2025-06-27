@@ -200,9 +200,73 @@
       </div>
 
       <div class="form-group">
-        <label for="importData">Import Data</label>
+        <div class="help-label">
+          <label for="importData">Import Data</label>
+          <span class="help-icon" id="importHelpIcon" title="Click for detailed import information">
+            <img src="icons/help.svg" alt="Help" class="help-svg" />
+          </span>
+        </div>
         <input type="file" id="importData" class="form-control" accept=".csv">
         <small class="help-text">Import tasks from CSV file</small>
+        
+        <div class="import-options" style="margin-top: 10px;">
+          <label><strong>Import Mode:</strong></label>
+          <div style="margin-top: 5px;">
+            <label class="radio-label">
+              <input type="radio" name="importMode" value="append" checked>
+              <span class="radio-text"><strong>Append</strong> - Add new tasks (may create duplicates)</span>
+            </label>
+          </div>
+          <div style="margin-top: 5px;">
+            <label class="radio-label">
+              <input type="radio" name="importMode" value="update">
+              <span class="radio-text"><strong>Update</strong> - Update existing tasks, add new ones</span>
+            </label>
+          </div>
+          <div style="margin-top: 5px;">
+            <label class="radio-label">
+              <input type="radio" name="importMode" value="replace">
+              <span class="radio-text"><strong>Replace</strong> - Clear all existing tasks and import fresh</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <h3>Bulk Update Customer/Project Names</h3>
+        <p class="help-text">Update customer or project names across all existing tasks</p>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <div style="flex: 1;">
+            <label for="oldName">Current Name</label>
+            <input type="text" id="oldName" class="form-control" placeholder="e.g., ABC Corp">
+          </div>
+          <div style="flex: 1;">
+            <label for="newName">New Name</label>
+            <input type="text" id="newName" class="form-control" placeholder="e.g., ABC Corporation, 80">
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 10px;">
+          <label class="radio-label">
+            <input type="radio" name="updateType" value="customer" checked>
+            <span class="radio-text">Update Customer Names</span>
+          </label>
+          <label class="radio-label" style="margin-left: 20px;">
+            <input type="radio" name="updateType" value="project">
+            <span class="radio-text">Update Project Names</span>
+          </label>
+        </div>
+        
+        <div>
+          <button id="previewNameUpdate" class="btn btn-secondary">Preview Changes</button>
+          <button id="applyNameUpdate" class="btn btn-primary" disabled>Apply Changes</button>
+        </div>
+        
+        <div id="nameUpdatePreview" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">
+          <h4>Preview</h4>
+          <div id="nameUpdateResults"></div>
+        </div>
       </div>
 
       <div class="form-group danger-zone">
@@ -218,6 +282,101 @@
     </div>
 
     <div id="saveStatus" class="save-status" style="display: none;"></div>
+  </div>
+
+  <!-- Import Help Box -->
+  <div id="helpOverlay" class="help-overlay"></div>
+  <div id="importHelpBox" class="help-box">
+    <div class="help-box-header">
+      <h3>CSV Import Guide</h3>
+      <button class="help-box-close" id="helpCloseBtn" title="Close help">&times;</button>
+    </div>
+    <div class="help-box-content">
+      <div class="help-section">
+        <h4>📊 Import Behavior</h4>
+        <p>Understanding how CSV import works:</p>
+        <ul>
+          <li><strong>Revenue column is ignored</strong> - The "Projected Revenue" column in your CSV is not imported. Revenue is always recalculated based on your current customer/project rates.</li>
+          <li><strong>Duration takes precedence</strong> - The "Duration (seconds)" value from your CSV is used as-is, even if it doesn't match the time difference between Start and End times.</li>
+          <li><strong>No time validation</strong> - The system won't warn you if duration doesn't match the start/end time span.</li>
+          <li><strong>Rates from settings</strong> - Revenue calculation uses rates from your current Customers & Projects settings, not any rates in the CSV.</li>
+        </ul>
+      </div>
+
+      <div class="help-section">
+        <h4>🔄 Import Modes</h4>
+        <p><strong>Append Mode (Default):</strong></p>
+        <ul>
+          <li>Adds all imported tasks to your existing data</li>
+          <li>May create duplicates if you import the same file multiple times</li>
+          <li>Safest option - doesn't modify existing tasks</li>
+        </ul>
+        
+        <p><strong>Update Mode:</strong></p>
+        <ul>
+          <li>Detects duplicates by comparing: task title, customer, project, and start time (±1 minute tolerance)</li>
+          <li>Updates existing tasks if a match is found</li>
+          <li>Adds new tasks if no match is found</li>
+          <li>Preserves original task IDs for updated tasks</li>
+        </ul>
+        
+        <p><strong>Replace Mode:</strong></p>
+        <ul>
+          <li>Clears ALL existing tasks first</li>
+          <li>Imports fresh data from CSV</li>
+          <li>⚠️ <strong>Warning:</strong> This permanently deletes all your current tasks</li>
+        </ul>
+      </div>
+
+      <div class="help-section">
+        <h4>⚠️ Important Considerations</h4>
+        
+        <div class="help-warning">
+          <p><strong>Duration vs Time Span Mismatch:</strong> If your CSV has a task from 10:00-11:00 AM (1 hour) but duration shows 7200 seconds (2 hours), the system will use 2 hours for revenue calculation.</p>
+        </div>
+        
+        <p><strong>Revenue Calculation Example:</strong></p>
+        <ul>
+          <li>CSV shows: <span class="help-code">"Task","Client, 80","Project",Y,"...","...",7200,"500.00 €"</span></li>
+          <li>Duration imported: 7200 seconds (2 hours)</li>
+          <li>Revenue ignored: 500.00 €</li>
+          <li>Actual revenue calculated: 80 × 2 = 160.00 €</li>
+        </ul>
+        
+        <p><strong>Rate Format:</strong></p>
+        <ul>
+          <li>Use format <span class="help-code">"Name, Rate"</span> in your Customers & Projects settings</li>
+          <li>Example: <span class="help-code">"ABC Corporation, 80"</span> for €80/hour</li>
+          <li>Project rates override customer rates when both are set</li>
+        </ul>
+      </div>
+
+      <div class="help-section">
+        <h4>📋 Expected CSV Format</h4>
+        <p>Your CSV file should have these columns (in this exact order):</p>
+        <ul>
+          <li><span class="help-code">Task Title</span> - Required</li>
+          <li><span class="help-code">Customer</span> - Optional</li>
+          <li><span class="help-code">Project</span> - Optional</li>
+          <li><span class="help-code">Billable</span> - Y/N or True/False</li>
+          <li><span class="help-code">Start Time</span> - ISO format: 2023-01-01T10:00:00.000Z</li>
+          <li><span class="help-code">End Time</span> - ISO format (optional)</li>
+          <li><span class="help-code">Duration (seconds)</span> - Required number</li>
+          <li><span class="help-code">Projected Revenue</span> - Ignored during import</li>
+        </ul>
+      </div>
+
+      <div class="help-section">
+        <h4>💡 Best Practices</h4>
+        <ul>
+          <li>Always backup your data before using Replace mode</li>
+          <li>Use Update mode when re-importing corrected data</li>
+          <li>Ensure duration values accurately represent billable time</li>
+          <li>Set up customer/project rates before importing for accurate revenue calculation</li>
+          <li>Test with a small CSV file first to verify expected behavior</li>
+        </ul>
+      </div>
+    </div>
   </div>
 
   <script src="options.js"></script>

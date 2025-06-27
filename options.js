@@ -68,6 +68,22 @@ class SettingsManager {
     document.getElementById('exportAllData').addEventListener('click', () => this.exportAllData());
     document.getElementById('importData').addEventListener('change', (e) => this.importData(e));
     document.getElementById('clearAllData').addEventListener('click', () => this.clearAllData());
+    
+    // Name migration tools
+    document.getElementById('previewNameUpdate').addEventListener('click', () => this.previewNameUpdate());
+    document.getElementById('applyNameUpdate').addEventListener('click', () => this.applyNameUpdate());
+    
+    // Help box functionality
+    document.getElementById('importHelpIcon').addEventListener('click', () => this.showImportHelp());
+    document.getElementById('helpCloseBtn').addEventListener('click', () => this.hideImportHelp());
+    document.getElementById('helpOverlay').addEventListener('click', () => this.hideImportHelp());
+    
+    // Close help box with Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('importHelpBox').classList.contains('show')) {
+        this.hideImportHelp();
+      }
+    });
   }
 
   updateUI() {
@@ -256,6 +272,9 @@ class SettingsManager {
     const file = event.target.files[0];
     if (!file) return;
 
+    // Get selected import mode
+    const importMode = document.querySelector('input[name="importMode"]:checked').value;
+
     try {
       const text = await file.text();
       const lines = text.split('\n').filter(line => line.trim()); // Remove empty lines
@@ -406,7 +425,7 @@ class SettingsManager {
         throw new Error('No valid tasks found in the CSV file.');
       }
       
-      // Get current tasks and merge
+      // Get current tasks and handle based on import mode
       const currentData = await chrome.storage.local.get(['tasks']);
       const currentTasks = currentData.tasks || [];
       
@@ -417,10 +436,28 @@ class SettingsManager {
         endTime: task.endTime instanceof Date ? task.endTime.toISOString() : task.endTime
       }));
       
-      const allTasks = [...tasksForStorage, ...currentTasks];
+      let finalTasks;
+      let updatedCount = 0;
+      let addedCount = 0;
+      
+      if (importMode === 'replace') {
+        // Replace mode: use only imported tasks
+        finalTasks = tasksForStorage;
+        addedCount = tasksForStorage.length;
+      } else if (importMode === 'update') {
+        // Update mode: merge with duplicate detection
+        const result = this.mergeTasksWithDuplicateDetection(currentTasks, tasksForStorage);
+        finalTasks = result.tasks;
+        updatedCount = result.updatedCount;
+        addedCount = result.addedCount;
+      } else {
+        // Append mode: add all imported tasks (original behavior)
+        finalTasks = [...tasksForStorage, ...currentTasks];
+        addedCount = tasksForStorage.length;
+      }
       
       // Save directly to storage
-      await chrome.storage.local.set({ tasks: allTasks });
+      await chrome.storage.local.set({ tasks: finalTasks });
       
       // Notify background script to reload data
       try {
@@ -445,7 +482,15 @@ class SettingsManager {
         // Continue anyway - the storage change listener should pick it up
       }
       
-      let statusMessage = `Successfully imported ${importedTasks.length} tasks.`;
+      let statusMessage;
+      if (importMode === 'replace') {
+        statusMessage = `Successfully replaced all tasks with ${addedCount} imported tasks.`;
+      } else if (importMode === 'update') {
+        statusMessage = `Successfully processed ${importedTasks.length} tasks: ${updatedCount} updated, ${addedCount} added.`;
+      } else {
+        statusMessage = `Successfully imported ${addedCount} tasks.`;
+      }
+      
       if (errors.length > 0) {
         statusMessage += ` ${errors.length} rows had errors and were skipped.`;
       }
@@ -766,6 +811,184 @@ class SettingsManager {
       // Default: symbol after amount
       return `${formattedAmount} ${symbol}`;
     }
+  }
+
+  // Merge tasks with duplicate detection for update mode
+  mergeTasksWithDuplicateDetection(currentTasks, importedTasks) {
+    let updatedCount = 0;
+    let addedCount = 0;
+    const resultTasks = [...currentTasks];
+    
+    for (const importedTask of importedTasks) {
+      // Find potential duplicate based on title, customer, project, and start time
+      const duplicateIndex = resultTasks.findIndex(existingTask => {
+        return existingTask.title === importedTask.title &&
+               existingTask.customer === importedTask.customer &&
+               existingTask.project === importedTask.project &&
+               this.isSameDateTime(existingTask.startTime, importedTask.startTime);
+      });
+      
+      if (duplicateIndex !== -1) {
+        // Update existing task
+        resultTasks[duplicateIndex] = { ...importedTask, id: resultTasks[duplicateIndex].id };
+        updatedCount++;
+      } else {
+        // Add new task
+        resultTasks.push(importedTask);
+        addedCount++;
+      }
+    }
+    
+    return { tasks: resultTasks, updatedCount, addedCount };
+  }
+
+  // Check if two datetime strings represent the same time (within 1 minute tolerance)
+  isSameDateTime(date1, date2) {
+    const time1 = new Date(date1).getTime();
+    const time2 = new Date(date2).getTime();
+    const timeDiff = Math.abs(time1 - time2);
+    return timeDiff < 60000; // 1 minute tolerance
+  }
+
+  // Preview name update changes
+  async previewNameUpdate() {
+    try {
+      const oldName = document.getElementById('oldName').value.trim();
+      const newName = document.getElementById('newName').value.trim();
+      const updateType = document.querySelector('input[name="updateType"]:checked').value;
+      
+      if (!oldName || !newName) {
+        this.showSaveStatus('Please enter both current and new names.', 'error');
+        return;
+      }
+      
+      // Get current tasks
+      const data = await chrome.storage.local.get(['tasks']);
+      const tasks = data.tasks || [];
+      
+      // Find matching tasks
+      const matchingTasks = tasks.filter(task => {
+        const targetField = updateType === 'customer' ? task.customer : task.project;
+        return targetField === oldName;
+      });
+      
+      // Display preview
+      const previewDiv = document.getElementById('nameUpdatePreview');
+      const resultsDiv = document.getElementById('nameUpdateResults');
+      
+      if (matchingTasks.length === 0) {
+        resultsDiv.innerHTML = `<p>No tasks found with ${updateType} name "${oldName}".</p>`;
+        document.getElementById('applyNameUpdate').disabled = true;
+      } else {
+        resultsDiv.innerHTML = `
+          <p><strong>Found ${matchingTasks.length} tasks that will be updated:</strong></p>
+          <ul style="max-height: 200px; overflow-y: auto;">
+            ${matchingTasks.map(task => `
+              <li>${task.title} - ${new Date(task.startTime).toLocaleDateString()}</li>
+            `).join('')}
+          </ul>
+          <p><strong>Change:</strong> "${oldName}" → "${newName}"</p>
+        `;
+        document.getElementById('applyNameUpdate').disabled = false;
+      }
+      
+      previewDiv.style.display = 'block';
+    } catch (error) {
+      console.error('Error previewing name update:', error);
+      this.showSaveStatus('Error previewing changes. Please try again.', 'error');
+    }
+  }
+
+  // Apply name update changes
+  async applyNameUpdate() {
+    try {
+      const oldName = document.getElementById('oldName').value.trim();
+      const newName = document.getElementById('newName').value.trim();
+      const updateType = document.querySelector('input[name="updateType"]:checked').value;
+      
+      if (!oldName || !newName) {
+        this.showSaveStatus('Please enter both current and new names.', 'error');
+        return;
+      }
+      
+      // Get current tasks
+      const data = await chrome.storage.local.get(['tasks']);
+      const tasks = data.tasks || [];
+      
+      // Update matching tasks
+      let updatedCount = 0;
+      const updatedTasks = tasks.map(task => {
+        const targetField = updateType === 'customer' ? task.customer : task.project;
+        if (targetField === oldName) {
+          updatedCount++;
+          return {
+            ...task,
+            [updateType]: newName
+          };
+        }
+        return task;
+      });
+      
+      // Save updated tasks
+      await chrome.storage.local.set({ tasks: updatedTasks });
+      
+      // Notify background script to reload data
+      try {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Timeout waiting for background response'));
+          }, 5000);
+          
+          chrome.runtime.sendMessage({ action: 'reloadData' }, (response) => {
+            clearTimeout(timeout);
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else if (response && response.success) {
+              resolve(response);
+            } else {
+              reject(new Error(response?.error || 'Failed to reload data in background'));
+            }
+          });
+        });
+      } catch (reloadError) {
+        console.warn('Failed to notify background script:', reloadError);
+      }
+      
+      // Clear form and hide preview
+      document.getElementById('oldName').value = '';
+      document.getElementById('newName').value = '';
+      document.getElementById('nameUpdatePreview').style.display = 'none';
+      document.getElementById('applyNameUpdate').disabled = true;
+      
+      this.showSaveStatus(`Successfully updated ${updatedCount} tasks.`, 'success');
+      
+    } catch (error) {
+      console.error('Error applying name update:', error);
+      this.showSaveStatus('Error applying changes. Please try again.', 'error');
+    }
+  }
+
+  // Help box functionality
+  showImportHelp() {
+    const helpBox = document.getElementById('importHelpBox');
+    const helpOverlay = document.getElementById('helpOverlay');
+    
+    helpOverlay.classList.add('show');
+    helpBox.classList.add('show');
+    
+    // Prevent body scroll when help box is open
+    document.body.style.overflow = 'hidden';
+  }
+
+  hideImportHelp() {
+    const helpBox = document.getElementById('importHelpBox');
+    const helpOverlay = document.getElementById('helpOverlay');
+    
+    helpOverlay.classList.remove('show');
+    helpBox.classList.remove('show');
+    
+    // Restore body scroll
+    document.body.style.overflow = '';
   }
 }
 
