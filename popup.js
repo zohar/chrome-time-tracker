@@ -1015,8 +1015,9 @@ class TimeTracker {
       
       let totalTime = tasks.reduce((sum, task) => sum + (Number(task.duration) || 0), 0);
       let billableTime = tasks.filter(task => task.billable).reduce((sum, task) => sum + (Number(task.duration) || 0), 0);
+      let projectedRevenue = tasks.reduce((sum, task) => sum + this.calculateTaskRevenue(task), 0);
       
-      // Add current task time if it's in the current period
+      // Add current task time and revenue if it's in the current period
       if (this.state.currentTask && this.isTaskInPeriod(this.state.currentTask.startTime, this.currentPeriod, now)) {
         const currentTime = Date.now();
         const startTime = new Date(this.state.currentTask.startTime);
@@ -1028,15 +1029,24 @@ class TimeTracker {
           totalTime += currentTaskTotalDuration;
           if (this.state.currentTask.billable) {
             billableTime += currentTaskTotalDuration;
+            
+            // Calculate revenue for current task including live session time
+            const currentTaskWithLiveTime = {
+              ...this.state.currentTask,
+              duration: currentTaskTotalDuration
+            };
+            projectedRevenue += this.calculateTaskRevenue(currentTaskWithLiveTime);
           }
         }
       }
       
       const totalTimeEl = document.getElementById('totalTime');
       const billableTimeEl = document.getElementById('billableTime');
+      const projectedRevenueEl = document.getElementById('projectedRevenue');
       
       if (totalTimeEl) totalTimeEl.textContent = this.formatDuration(totalTime);
       if (billableTimeEl) billableTimeEl.textContent = this.formatDuration(billableTime);
+      if (projectedRevenueEl) projectedRevenueEl.textContent = projectedRevenue > 0 ? this.formatCurrency(projectedRevenue) : '—';
     } catch (error) {
       console.error('Error updating summary:', error);
     }
@@ -1292,6 +1302,159 @@ class TimeTracker {
     const secs = seconds % 60;
     
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  // Rate parsing utilities
+  parseNameAndRate(input) {
+    const trimmed = input.trim();
+    const lastCommaIndex = trimmed.lastIndexOf(',');
+    
+    if (lastCommaIndex === -1) {
+      return { name: trimmed, rate: null };
+    }
+    
+    const name = trimmed.substring(0, lastCommaIndex).trim();
+    const rateStr = trimmed.substring(lastCommaIndex + 1).trim();
+    const rate = parseFloat(rateStr);
+    
+    if (isNaN(rate) || rate < 0) {
+      return { name: trimmed, rate: null };
+    }
+    
+    return { name, rate };
+  }
+
+  // Get hourly rate for a task (project rate takes precedence over customer rate)
+  getHourlyRate(customer, project) {
+    // First check for project rate
+    if (project) {
+      for (const projectStr of this.state.projects) {
+        const parsed = this.parseNameAndRate(projectStr);
+        if (parsed.name === project && parsed.rate !== null) {
+          return parsed.rate;
+        }
+      }
+    }
+    
+    // Then check for customer rate
+    if (customer) {
+      for (const customerStr of this.state.customers) {
+        const parsed = this.parseNameAndRate(customerStr);
+        if (parsed.name === customer && parsed.rate !== null) {
+          return parsed.rate;
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  // Calculate projected revenue for a task
+  calculateTaskRevenue(task) {
+    if (!task.billable) return 0;
+    
+    const rate = this.getHourlyRate(task.customer, task.project);
+    if (rate === null) return 0;
+    
+    const durationHours = (Number(task.duration) || 0) / (1000 * 60 * 60);
+    return rate * durationHours;
+  }
+
+  // Currency formatting utility
+  formatCurrency(amount, currency = null, format = null) {
+    if (amount === null || amount === undefined || isNaN(amount)) return '—';
+    
+    const currencyCode = currency || this.state.settings.currency || 'EUR';
+    const formatTemplate = format || this.state.settings.currencyFormat || '1234.56 €';
+    
+    // Currency symbols mapping
+    const symbols = {
+      'EUR': '€',
+      'USD': '$',
+      'AFN': '؋',
+      'ALL': 'L',
+      'DZD': 'د.ج',
+      'ARS': '$',
+      'AMD': '֏',
+      'AUD': 'A$',
+      'AZN': '₼',
+      'BHD': '.د.ب',
+      'BDT': '৳',
+      'BYN': 'Br',
+      'BRL': 'R$',
+      'GBP': '£',
+      'BGN': 'лв',
+      'CAD': 'C$',
+      'CLP': '$',
+      'CNY': '¥',
+      'COP': '$',
+      'HRK': 'kn',
+      'CZK': 'Kč',
+      'DKK': 'kr',
+      'EGP': '£',
+      'ETB': 'Br',
+      'GEL': '₾',
+      'GHS': '₵',
+      'HKD': 'HK$',
+      'HUF': 'Ft',
+      'ISK': 'kr',
+      'INR': '₹',
+      'IDR': 'Rp',
+      'IRR': '﷼',
+      'IQD': 'ع.د',
+      'ILS': '₪',
+      'JPY': '¥',
+      'JOD': 'د.ا',
+      'KZT': '₸',
+      'KES': 'Sh',
+      'KWD': 'د.ك',
+      'LBP': 'ل.ل',
+      'MYR': 'RM',
+      'MXN': '$',
+      'MAD': 'د.م.',
+      'NZD': 'NZ$',
+      'NGN': '₦',
+      'NOK': 'kr',
+      'PKR': '₨',
+      'PHP': '₱',
+      'PLN': 'zł',
+      'QAR': 'ر.ق',
+      'RON': 'lei',
+      'RUB': '₽',
+      'SAR': 'ر.س',
+      'RSD': 'дин',
+      'SGD': 'S$',
+      'ZAR': 'R',
+      'KRW': '₩',
+      'LKR': 'Rs',
+      'SEK': 'kr',
+      'CHF': 'Fr',
+      'THB': '฿',
+      'TRY': '₺',
+      'UAH': '₴',
+      'AED': 'د.إ',
+      'UYU': '$',
+      'VES': 'Bs',
+      'VND': '₫'
+    };
+    
+    const symbol = symbols[currencyCode] || currencyCode;
+    const formattedAmount = amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    
+    // Apply format template
+    if (formatTemplate.includes('€1,234.56') || formatTemplate.startsWith(symbol)) {
+      return `${symbol}${formattedAmount}`;
+    } else if (formatTemplate.includes('1,234.56 EUR') || formatTemplate.endsWith(' ' + currencyCode)) {
+      return `${formattedAmount} ${currencyCode}`;
+    } else if (formatTemplate.includes('EUR 1,234.56') || formatTemplate.startsWith(currencyCode + ' ')) {
+      return `${currencyCode} ${formattedAmount}`;
+    } else {
+      // Default: amount + symbol
+      return `${formattedAmount} ${symbol}`;
+    }
   }
 
   openSettings() {

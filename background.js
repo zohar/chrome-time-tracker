@@ -11,7 +11,9 @@ class BackgroundService {
       defaultProject: '',
       defaultBillable: false,
       webhookUrl: '',
-      webhookEnabled: false
+      webhookEnabled: false,
+      currency: 'EUR',
+      currencyFormat: '1234.56 €'
     };
     this.timerInterval = null;
     this.isInitialized = false;
@@ -690,11 +692,15 @@ class BackgroundService {
   }
 
   generateCSV(tasks) {
-    const headers = ['Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)'];
+    const headers = ['Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)', 'Projected Revenue'];
     const rows = tasks.map(task => {
       // Ensure we have valid dates for CSV export
       const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
       const endTime = task.endTime ? (task.endTime instanceof Date ? task.endTime : new Date(task.endTime)) : null;
+      
+      // Calculate projected revenue for this task
+      const revenue = this.calculateTaskRevenue(task);
+      const formattedRevenue = revenue > 0 ? this.formatCurrency(revenue) : '';
       
       return [
         `"${task.title.replace(/"/g, '""')}"`,
@@ -703,7 +709,8 @@ class BackgroundService {
         task.billable ? 'Y' : 'N',
         isNaN(startTime.getTime()) ? '' : startTime.toISOString(),
         endTime && !isNaN(endTime.getTime()) ? endTime.toISOString() : '',
-        Math.floor((Number(task.duration) || 0) / 1000)
+        Math.floor((Number(task.duration) || 0) / 1000),
+        `"${formattedRevenue}"`
       ];
     });
     
@@ -800,6 +807,165 @@ class BackgroundService {
     const taskDate = new Date(date);
     return taskDate.getMonth() === referenceDate.getMonth() && 
            taskDate.getFullYear() === referenceDate.getFullYear();
+  }
+
+  // Rate parsing utilities
+  parseNameAndRate(input) {
+    const trimmed = input.trim();
+    const lastCommaIndex = trimmed.lastIndexOf(',');
+    
+    if (lastCommaIndex === -1) {
+      return { name: trimmed, rate: null };
+    }
+    
+    const name = trimmed.substring(0, lastCommaIndex).trim();
+    const rateStr = trimmed.substring(lastCommaIndex + 1).trim();
+    const rate = parseFloat(rateStr);
+    
+    if (isNaN(rate) || rate < 0) {
+      return { name: trimmed, rate: null };
+    }
+    
+    return { name, rate };
+  }
+
+  // Get hourly rate for a task (project rate takes precedence over customer rate)
+  getHourlyRate(customer, project) {
+    // First check for project rate
+    if (project) {
+      for (const projectStr of this.projects) {
+        const parsed = this.parseNameAndRate(projectStr);
+        if (parsed.name === project && parsed.rate !== null) {
+          return parsed.rate;
+        }
+      }
+    }
+    
+    // Then check for customer rate
+    if (customer) {
+      for (const customerStr of this.customers) {
+        const parsed = this.parseNameAndRate(customerStr);
+        if (parsed.name === customer && parsed.rate !== null) {
+          return parsed.rate;
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  // Calculate projected revenue for a task
+  calculateTaskRevenue(task) {
+    if (!task.billable) return 0;
+    
+    const rate = this.getHourlyRate(task.customer, task.project);
+    if (rate === null) return 0;
+    
+    const durationHours = (Number(task.duration) || 0) / (1000 * 60 * 60);
+    return rate * durationHours;
+  }
+
+  // Calculate total revenue for tasks in a given period
+  calculatePeriodRevenue(period, date) {
+    const tasks = this.getTasksForPeriod(period, date);
+    return tasks.reduce((total, task) => total + this.calculateTaskRevenue(task), 0);
+  }
+
+  // Currency formatting utility
+  formatCurrency(amount, currency = null, format = null) {
+    if (amount === null || amount === undefined || isNaN(amount)) return '';
+    
+    const currencyCode = currency || this.settings.currency || 'EUR';
+    const formatTemplate = format || this.settings.currencyFormat || '1234.56 €';
+    
+    // Currency symbols mapping
+    const symbols = {
+      'EUR': '€',
+      'USD': '$',
+      'AFN': '؋',
+      'ALL': 'L',
+      'DZD': 'د.ج',
+      'ARS': '$',
+      'AMD': '֏',
+      'AUD': 'A$',
+      'AZN': '₼',
+      'BHD': '.د.ب',
+      'BDT': '৳',
+      'BYN': 'Br',
+      'BRL': 'R$',
+      'GBP': '£',
+      'BGN': 'лв',
+      'CAD': 'C$',
+      'CLP': '$',
+      'CNY': '¥',
+      'COP': '$',
+      'HRK': 'kn',
+      'CZK': 'Kč',
+      'DKK': 'kr',
+      'EGP': '£',
+      'ETB': 'Br',
+      'GEL': '₾',
+      'GHS': '₵',
+      'HKD': 'HK$',
+      'HUF': 'Ft',
+      'ISK': 'kr',
+      'INR': '₹',
+      'IDR': 'Rp',
+      'IRR': '﷼',
+      'IQD': 'ع.د',
+      'ILS': '₪',
+      'JPY': '¥',
+      'JOD': 'د.ا',
+      'KZT': '₸',
+      'KES': 'Sh',
+      'KWD': 'د.ك',
+      'LBP': 'ل.ل',
+      'MYR': 'RM',
+      'MXN': '$',
+      'MAD': 'د.م.',
+      'NZD': 'NZ$',
+      'NGN': '₦',
+      'NOK': 'kr',
+      'PKR': '₨',
+      'PHP': '₱',
+      'PLN': 'zł',
+      'QAR': 'ر.ق',
+      'RON': 'lei',
+      'RUB': '₽',
+      'SAR': 'ر.س',
+      'RSD': 'дин',
+      'SGD': 'S$',
+      'ZAR': 'R',
+      'KRW': '₩',
+      'LKR': 'Rs',
+      'SEK': 'kr',
+      'CHF': 'Fr',
+      'THB': '฿',
+      'TRY': '₺',
+      'UAH': '₴',
+      'AED': 'د.إ',
+      'UYU': '$',
+      'VES': 'Bs',
+      'VND': '₫'
+    };
+    
+    const symbol = symbols[currencyCode] || currencyCode;
+    const formattedAmount = amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    
+    // Apply format template
+    if (formatTemplate.includes('€1,234.56') || formatTemplate.startsWith(symbol)) {
+      return `${symbol}${formattedAmount}`;
+    } else if (formatTemplate.includes('1,234.56 EUR') || formatTemplate.endsWith(' ' + currencyCode)) {
+      return `${formattedAmount} ${currencyCode}`;
+    } else if (formatTemplate.includes('EUR 1,234.56') || formatTemplate.startsWith(currencyCode + ' ')) {
+      return `${currencyCode} ${formattedAmount}`;
+    } else {
+      // Default: amount + symbol
+      return `${formattedAmount} ${symbol}`;
+    }
   }
 }
 

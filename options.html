@@ -41,16 +41,106 @@
     </div>
 
     <div class="settings-section">
+      <h2>Currency & Revenue</h2>
+      
+      <div class="form-group">
+        <label for="currency">Currency</label>
+        <select id="currency" class="form-control">
+          <option value="EUR">Euro (EUR) €</option>
+          <option value="USD">US Dollar (USD) $</option>
+          <option value="AFN">Afghan Afghani (AFN) ؋</option>
+          <option value="ALL">Albanian Lek (ALL) L</option>
+          <option value="DZD">Algerian Dinar (DZD) د.ج</option>
+          <option value="ARS">Argentine Peso (ARS) $</option>
+          <option value="AMD">Armenian Dram (AMD) ֏</option>
+          <option value="AUD">Australian Dollar (AUD) A$</option>
+          <option value="AZN">Azerbaijani Manat (AZN) ₼</option>
+          <option value="BHD">Bahraini Dinar (BHD) .د.ب</option>
+          <option value="BDT">Bangladeshi Taka (BDT) ৳</option>
+          <option value="BYN">Belarusian Ruble (BYN) Br</option>
+          <option value="BRL">Brazilian Real (BRL) R$</option>
+          <option value="GBP">British Pound (GBP) £</option>
+          <option value="BGN">Bulgarian Lev (BGN) лв</option>
+          <option value="CAD">Canadian Dollar (CAD) C$</option>
+          <option value="CLP">Chilean Peso (CLP) $</option>
+          <option value="CNY">Chinese Yuan (CNY) ¥</option>
+          <option value="COP">Colombian Peso (COP) $</option>
+          <option value="HRK">Croatian Kuna (HRK) kn</option>
+          <option value="CZK">Czech Koruna (CZK) Kč</option>
+          <option value="DKK">Danish Krone (DKK) kr</option>
+          <option value="EGP">Egyptian Pound (EGP) £</option>
+          <option value="ETB">Ethiopian Birr (ETB) Br</option>
+          <option value="GEL">Georgian Lari (GEL) ₾</option>
+          <option value="GHS">Ghanaian Cedi (GHS) ₵</option>
+          <option value="HKD">Hong Kong Dollar (HKD) HK$</option>
+          <option value="HUF">Hungarian Forint (HUF) Ft</option>
+          <option value="ISK">Icelandic Króna (ISK) kr</option>
+          <option value="INR">Indian Rupee (INR) ₹</option>
+          <option value="IDR">Indonesian Rupiah (IDR) Rp</option>
+          <option value="IRR">Iranian Rial (IRR) ﷼</option>
+          <option value="IQD">Iraqi Dinar (IQD) ع.د</option>
+          <option value="ILS">Israeli Shekel (ILS) ₪</option>
+          <option value="JPY">Japanese Yen (JPY) ¥</option>
+          <option value="JOD">Jordanian Dinar (JOD) د.ا</option>
+          <option value="KZT">Kazakhstani Tenge (KZT) ₸</option>
+          <option value="KES">Kenyan Shilling (KES) Sh</option>
+          <option value="KWD">Kuwaiti Dinar (KWD) د.ك</option>
+          <option value="LBP">Lebanese Pound (LBP) ل.ل</option>
+          <option value="MYR">Malaysian Ringgit (MYR) RM</option>
+          <option value="MXN">Mexican Peso (MXN) $</option>
+          <option value="MAD">Moroccan Dirham (MAD) د.م.</option>
+          <option value="NZD">New Zealand Dollar (NZD) NZ$</option>
+          <option value="NGN">Nigerian Naira (NGN) ₦</option>
+          <option value="NOK">Norwegian Krone (NOK) kr</option>
+          <option value="PKR">Pakistani Rupee (PKR) ₨</option>
+          <option value="PHP">Philippine Peso (PHP) ₱</option>
+          <option value="PLN">Polish Złoty (PLN) zł</option>
+          <option value="QAR">Qatari Riyal (QAR) ر.ق</option>
+          <option value="RON">Romanian Leu (RON) lei</option>
+          <option value="RUB">Russian Ruble (RUB) ₽</option>
+          <option value="SAR">Saudi Riyal (SAR) ر.س</option>
+          <option value="RSD">Serbian Dinar (RSD) дин</option>
+          <option value="SGD">Singapore Dollar (SGD) S$</option>
+          <option value="ZAR">South African Rand (ZAR) R</option>
+          <option value="KRW">South Korean Won (KRW) ₩</option>
+          <option value="LKR">Sri Lankan Rupee (LKR) Rs</option>
+          <option value="SEK">Swedish Krona (SEK) kr</option>
+          <option value="CHF">Swiss Franc (CHF) Fr</option>
+          <option value="THB">Thai Baht (THB) ฿</option>
+          <option value="TRY">Turkish Lira (TRY) ₺</option>
+          <option value="UAH">Ukrainian Hryvnia (UAH) ₴</option>
+          <option value="AED">United Arab Emirates Dirham (AED) د.إ</option>
+          <option value="UYU">Uruguayan Peso (UYU) $</option>
+          <option value="VES">Venezuelan Bolívar (VES) Bs</option>
+          <option value="VND">Vietnamese Dong (VND) ₫</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="currencyFormat">Display Format</label>
+        <select id="currencyFormat" class="form-control">
+          <option value="1234.56 €">1234.56 € (Amount + Symbol)</option>
+          <option value="€1,234.56">€1,234.56 (Symbol + Amount)</option>
+          <option value="1,234.56 EUR">1,234.56 EUR (Amount + Code)</option>
+          <option value="EUR 1,234.56">EUR 1,234.56 (Code + Amount)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <h2>Customers & Projects</h2>
+      <p class="section-description">Add hourly rates by using the format: "Name, Rate" (e.g., "ABC Corporation, 80" for €80/hour)</p>
       
       <div class="form-group">
         <label for="customersInput">Customers (one per line)</label>
-        <textarea id="customersInput" class="form-control" rows="5" placeholder="Default Client&#10;ABC Corporation&#10;XYZ Inc"></textarea>
+        <textarea id="customersInput" class="form-control" rows="5" placeholder="Default Client&#10;ABC Corporation, 80&#10;XYZ Inc, 120"></textarea>
+        <small class="help-text">Format: "Customer Name" or "Customer Name, HourlyRate"</small>
       </div>
 
       <div class="form-group">
         <label for="projectsInput">Projects (one per line)</label>
-        <textarea id="projectsInput" class="form-control" rows="5" placeholder="General&#10;Development&#10;Meeting&#10;Support"></textarea>
+        <textarea id="projectsInput" class="form-control" rows="5" placeholder="General&#10;Development, 100&#10;Meeting&#10;Support, 85"></textarea>
+        <small class="help-text">Format: "Project Name" or "Project Name, HourlyRate". Project rates override customer rates.</small>
       </div>
     </div>
 
