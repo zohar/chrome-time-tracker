@@ -692,7 +692,7 @@ class BackgroundService {
   }
 
   generateCSV(tasks) {
-    const headers = ['Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)', 'Projected Revenue'];
+    const headers = ['Task ID', 'Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)', 'Projected Revenue'];
     const rows = tasks.map(task => {
       // Ensure we have valid dates for CSV export
       const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
@@ -703,6 +703,7 @@ class BackgroundService {
       const formattedRevenue = revenue > 0 ? this.formatCurrency(revenue) : '';
       
       return [
+        task.id || '',
         `"${task.title.replace(/"/g, '""')}"`,
         `"${task.customer || ''}"`,
         `"${task.project || ''}"`,
