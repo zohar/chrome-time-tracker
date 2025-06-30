@@ -244,8 +244,15 @@ class SettingsManager {
   }
 
   generateCSV(tasks) {
+    // Sort tasks by start time in ascending order (earliest first)
+    const sortedTasks = [...tasks].sort((a, b) => {
+      const startTimeA = new Date(a.startTime);
+      const startTimeB = new Date(b.startTime);
+      return startTimeA.getTime() - startTimeB.getTime();
+    });
+    
     const headers = ['Task ID', 'Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)', 'Projected Revenue'];
-    const rows = tasks.map(task => {
+    const rows = sortedTasks.map(task => {
       // Ensure we have valid dates
       const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
       const endTime = task.endTime ? (task.endTime instanceof Date ? task.endTime : new Date(task.endTime)) : null;
