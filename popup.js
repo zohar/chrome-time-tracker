@@ -699,15 +699,13 @@ class TimeTracker {
       let updatedProjects = [...this.state.projects];
       let needsSettingsUpdate = false;
       
-      if (customer && !this.state.customers.includes(customer)) {
-        updatedCustomers.push(customer);
-        updatedCustomers.sort();
+      if (customer && !this.findExistingEntry(this.state.customers, customer)) {
+        updatedCustomers = this.addUniqueEntry(updatedCustomers, customer);
         needsSettingsUpdate = true;
       }
       
-      if (project && !this.state.projects.includes(project)) {
-        updatedProjects.push(project);
-        updatedProjects.sort();
+      if (project && !this.findExistingEntry(this.state.projects, project)) {
+        updatedProjects = this.addUniqueEntry(updatedProjects, project);
         needsSettingsUpdate = true;
       }
       
@@ -1339,6 +1337,41 @@ class TimeTracker {
   }
 
   // Rate parsing utilities
+  parseNameOnly(input) {
+    if (!input || typeof input !== 'string') return '';
+    const trimmed = input.trim();
+    const lastCommaIndex = trimmed.lastIndexOf(',');
+    return lastCommaIndex === -1 ? trimmed : trimmed.substring(0, lastCommaIndex).trim();
+  }
+
+  deduplicateArray(array) {
+    if (!Array.isArray(array)) return [];
+    const seen = new Set();
+    return array.filter(item => {
+      const normalizedName = this.parseNameOnly(item);
+      if (seen.has(normalizedName)) {
+        return false;
+      }
+      seen.add(normalizedName);
+      return true;
+    });
+  }
+
+  findExistingEntry(array, newEntry) {
+    if (!Array.isArray(array) || !newEntry) return null;
+    const newName = this.parseNameOnly(newEntry);
+    return array.find(item => this.parseNameOnly(item) === newName);
+  }
+
+  addUniqueEntry(array, newEntry) {
+    if (!Array.isArray(array) || !newEntry) return array;
+    const existing = this.findExistingEntry(array, newEntry);
+    if (existing) {
+      return array; // Entry already exists, don't add
+    }
+    return [...array, newEntry].sort();
+  }
+
   parseNameAndRate(input) {
     const trimmed = input.trim();
     const lastCommaIndex = trimmed.lastIndexOf(',');

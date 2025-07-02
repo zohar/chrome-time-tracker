@@ -86,8 +86,20 @@ class BackgroundService {
       this.currentTask = data.currentTask || null;
       this.pausedTask = data.pausedTask || null;
       this.tasks = data.tasks || [];
-      this.customers = data.customers || ['Default Client'];
-      this.projects = data.projects || ['General'];
+      
+      // Handle customers and projects with proper fallback and deduplication
+      if (Array.isArray(data.customers) && data.customers.length > 0) {
+        this.customers = this.deduplicateArray(data.customers);
+      } else {
+        this.customers = ['Default Client'];
+      }
+      
+      if (Array.isArray(data.projects) && data.projects.length > 0) {
+        this.projects = this.deduplicateArray(data.projects);
+      } else {
+        this.projects = ['General'];
+      }
+      
       this.settings = { ...this.settings, ...data.settings };
 
       // Convert date strings back to Date objects with validation
@@ -641,8 +653,13 @@ class BackgroundService {
 
   async handleUpdateSettings(settingsData) {
     try {
-      this.customers = settingsData.customers || this.customers;
-      this.projects = settingsData.projects || this.projects;
+      // Update customers and projects with deduplication
+      if (settingsData.customers) {
+        this.customers = this.deduplicateArray(settingsData.customers);
+      }
+      if (settingsData.projects) {
+        this.projects = this.deduplicateArray(settingsData.projects);
+      }
       this.settings = { ...this.settings, ...settingsData.settings };
       
       await this.saveData();
@@ -858,6 +875,41 @@ class BackgroundService {
   }
 
   // Rate parsing utilities
+  parseNameOnly(input) {
+    if (!input || typeof input !== 'string') return '';
+    const trimmed = input.trim();
+    const lastCommaIndex = trimmed.lastIndexOf(',');
+    return lastCommaIndex === -1 ? trimmed : trimmed.substring(0, lastCommaIndex).trim();
+  }
+
+  deduplicateArray(array) {
+    if (!Array.isArray(array)) return [];
+    const seen = new Set();
+    return array.filter(item => {
+      const normalizedName = this.parseNameOnly(item);
+      if (seen.has(normalizedName)) {
+        return false;
+      }
+      seen.add(normalizedName);
+      return true;
+    });
+  }
+
+  findExistingEntry(array, newEntry) {
+    if (!Array.isArray(array) || !newEntry) return null;
+    const newName = this.parseNameOnly(newEntry);
+    return array.find(item => this.parseNameOnly(item) === newName);
+  }
+
+  addUniqueEntry(array, newEntry) {
+    if (!Array.isArray(array) || !newEntry) return array;
+    const existing = this.findExistingEntry(array, newEntry);
+    if (existing) {
+      return array; // Entry already exists, don't add
+    }
+    return [...array, newEntry].sort();
+  }
+
   parseNameAndRate(input) {
     const trimmed = input.trim();
     const lastCommaIndex = trimmed.lastIndexOf(',');

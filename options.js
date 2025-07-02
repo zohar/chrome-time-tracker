@@ -146,8 +146,20 @@ class SettingsManager {
       const customersText = document.getElementById('customersInput').value.trim();
       const projectsText = document.getElementById('projectsInput').value.trim();
       
-      this.customers = customersText ? customersText.split('\n').map(c => c.trim()).filter(c => c) : ['Default Client'];
-      this.projects = projectsText ? projectsText.split('\n').map(p => p.trim()).filter(p => p) : ['General'];
+      // Parse and deduplicate customers and projects
+      if (customersText) {
+        const rawCustomers = customersText.split('\n').map(c => c.trim()).filter(c => c);
+        this.customers = this.deduplicateArray(rawCustomers);
+      } else {
+        this.customers = ['Default Client'];
+      }
+      
+      if (projectsText) {
+        const rawProjects = projectsText.split('\n').map(p => p.trim()).filter(p => p);
+        this.projects = this.deduplicateArray(rawProjects);
+      } else {
+        this.projects = ['General'];
+      }
       
       await this.saveData();
       this.updateDropdowns();
@@ -170,8 +182,10 @@ class SettingsManager {
         currency: 'EUR',
         currencyFormat: '1,234.56 €'
       };
-      this.customers = ['Default Client'];
-      this.projects = ['General'];
+      
+      // Reset customers and projects, but avoid creating duplicates
+      this.customers = this.addUniqueEntry([], 'Default Client');
+      this.projects = this.addUniqueEntry([], 'General');
       
       await this.saveData();
       this.updateUI();
@@ -681,6 +695,41 @@ class SettingsManager {
   }
 
   // Utility functions for rate parsing
+  parseNameOnly(input) {
+    if (!input || typeof input !== 'string') return '';
+    const trimmed = input.trim();
+    const lastCommaIndex = trimmed.lastIndexOf(',');
+    return lastCommaIndex === -1 ? trimmed : trimmed.substring(0, lastCommaIndex).trim();
+  }
+
+  deduplicateArray(array) {
+    if (!Array.isArray(array)) return [];
+    const seen = new Set();
+    return array.filter(item => {
+      const normalizedName = this.parseNameOnly(item);
+      if (seen.has(normalizedName)) {
+        return false;
+      }
+      seen.add(normalizedName);
+      return true;
+    });
+  }
+
+  findExistingEntry(array, newEntry) {
+    if (!Array.isArray(array) || !newEntry) return null;
+    const newName = this.parseNameOnly(newEntry);
+    return array.find(item => this.parseNameOnly(item) === newName);
+  }
+
+  addUniqueEntry(array, newEntry) {
+    if (!Array.isArray(array) || !newEntry) return array;
+    const existing = this.findExistingEntry(array, newEntry);
+    if (existing) {
+      return array; // Entry already exists, don't add
+    }
+    return [...array, newEntry].sort();
+  }
+
   parseNameAndRate(input) {
     const trimmed = input.trim();
     const lastCommaIndex = trimmed.lastIndexOf(',');
