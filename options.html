@@ -295,6 +295,12 @@
       </div>
 
       <div class="form-group">
+        <label for="webhookBearerToken">Bearer Token (Optional)</label>
+        <input type="password" id="webhookBearerToken" class="form-control" placeholder="Enter your API token">
+        <small class="help-text">Optional: Bearer token for webhook authentication (e.g., "abc123" will send "Authorization: Bearer abc123")</small>
+      </div>
+
+      <div class="form-group">
         <button id="testWebhook" class="btn btn-secondary" disabled>Test Webhook</button>
       </div>
     </div>

@@ -12,6 +12,7 @@ class BackgroundService {
       defaultBillable: false,
       webhookUrl: '',
       webhookEnabled: false,
+      webhookBearerToken: '',
       currency: 'EUR',
       currencyFormat: '1,234.56 €'
     };
@@ -349,7 +350,7 @@ class BackgroundService {
         
         // Send webhook if enabled for the stopped task
         if (this.settings.webhookEnabled && this.settings.webhookUrl) {
-          this.sendWebhook(this.currentTask);
+          this.sendWebhook(this.currentTask, 'Create');
         }
       }
       
@@ -439,7 +440,7 @@ class BackgroundService {
       
       // Send webhook if enabled
       if (this.settings.webhookEnabled && this.settings.webhookUrl) {
-        this.sendWebhook(completedTask);
+        this.sendWebhook(completedTask, 'Create');
       }
       
       return { success: true, data: completedTask };
@@ -555,6 +556,23 @@ class BackgroundService {
       await this.saveData();
       this.notifyPopupStateChange();
       
+      // Send webhook if enabled - get the updated task data
+      if (this.settings.webhookEnabled && this.settings.webhookUrl) {
+        let updatedTask = null;
+        
+        if (taskType === 'current' && this.currentTask) {
+          updatedTask = this.currentTask;
+        } else if (taskType === 'paused' && this.pausedTask) {
+          updatedTask = this.pausedTask;
+        } else if (taskType === 'completed') {
+          updatedTask = this.tasks.find(t => t.id === task.id);
+        }
+        
+        if (updatedTask) {
+          this.sendWebhook(updatedTask, 'Update');
+        }
+      }
+      
       return { success: true };
     } catch (error) {
       console.error('Background: Error updating task:', error);
@@ -565,16 +583,21 @@ class BackgroundService {
   async handleDeleteTask(data) {
     try {
       const { taskId, taskType } = data;
+      let deletedTask = null;
       
       if (taskType === 'current' && this.currentTask && this.currentTask.id === taskId) {
+        deletedTask = { ...this.currentTask };
         this.currentTask = null;
         this.updateIcon('idle');
         
       } else if (taskType === 'paused' && this.pausedTask && this.pausedTask.id === taskId) {
+        deletedTask = { ...this.pausedTask };
         this.pausedTask = null;
         this.updateIcon('idle');
         
       } else if (taskType === 'completed') {
+        // Find the task before deleting it
+        deletedTask = this.tasks.find(t => t.id === taskId);
         const originalLength = this.tasks.length;
         this.tasks = this.tasks.filter(t => t.id !== taskId);
         
@@ -589,6 +612,11 @@ class BackgroundService {
       
       await this.saveData();
       this.notifyPopupStateChange();
+      
+      // Send webhook if enabled and task was found
+      if (deletedTask && this.settings.webhookEnabled && this.settings.webhookUrl) {
+        this.sendWebhook(deletedTask, 'Delete');
+      }
       
       return { success: true };
     } catch (error) {
@@ -699,7 +727,7 @@ class BackgroundService {
       return startTimeA.getTime() - startTimeB.getTime();
     });
     
-    const headers = ['Task ID', 'Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)', 'Projected Revenue'];
+    const headers = ['Task ID', 'Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)', 'Projected Revenue', 'Currency'];
     const rows = sortedTasks.map(task => {
       // Ensure we have valid dates for CSV export
       const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
@@ -707,7 +735,6 @@ class BackgroundService {
       
       // Calculate projected revenue for this task
       const revenue = this.calculateTaskRevenue(task);
-      const formattedRevenue = revenue > 0 ? this.formatCurrency(revenue) : '';
       
       return [
         task.id || '',
@@ -718,7 +745,8 @@ class BackgroundService {
         isNaN(startTime.getTime()) ? '' : startTime.toISOString(),
         endTime && !isNaN(endTime.getTime()) ? endTime.toISOString() : '',
         Math.floor((Number(task.duration) || 0) / 1000),
-        `"${formattedRevenue}"`
+        revenue > 0 ? revenue : '',
+        `"${this.settings.currency || 'EUR'}"`
       ];
     });
     
@@ -755,22 +783,34 @@ class BackgroundService {
     chrome.action.setBadgeBackgroundColor({ color: badgeColor[state] });
   }
 
-  async sendWebhook(task) {
+  async sendWebhook(task, action = 'Create') {
     try {
+      const projectedRevenue = this.calculateTaskRevenue(task);
+      
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Add Authorization header if bearer token is configured
+      if (this.settings.webhookBearerToken && this.settings.webhookBearerToken.trim()) {
+        headers['Authorization'] = `Bearer ${this.settings.webhookBearerToken.trim()}`;
+      }
+      
       await fetch(this.settings.webhookUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: JSON.stringify({
-          id: task.id,
-          title: task.title,
-          customer: task.customer,
-          project: task.project,
-          billable: task.billable,
-          startTime: task.startTime,
-          endTime: task.endTime,
-          duration: task.duration
+          "Action": action,
+          "Task ID": task.id,
+          "Task Title": task.title,
+          "Customer": task.customer,
+          "Project": task.project,
+          "Billable": task.billable ? 'Y' : 'N',
+          "Start Time": task.startTime,
+          "End Time": task.endTime,
+          "Duration (seconds)": Math.floor((Number(task.duration) || 0) / 1000),
+          "Projected Revenue": projectedRevenue > 0 ? projectedRevenue : null,
+          "Currency": this.settings.currency || 'EUR'
         })
       });
     } catch (error) {

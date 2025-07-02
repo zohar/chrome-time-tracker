@@ -6,6 +6,7 @@ class SettingsManager {
       defaultBillable: false,
       webhookUrl: '',
       webhookEnabled: false,
+      webhookBearerToken: '',
       currency: 'EUR',
       currencyFormat: '1,234.56 €'
     };
@@ -59,6 +60,7 @@ class SettingsManager {
     document.getElementById('webhookEnabled').addEventListener('change', (e) => {
       const enabled = e.target.checked;
       document.getElementById('webhookUrl').disabled = !enabled;
+      document.getElementById('webhookBearerToken').disabled = !enabled;
       document.getElementById('testWebhook').disabled = !enabled;
     });
     
@@ -91,7 +93,9 @@ class SettingsManager {
     // Update form fields
     document.getElementById('webhookEnabled').checked = this.settings.webhookEnabled;
     document.getElementById('webhookUrl').value = this.settings.webhookUrl;
+    document.getElementById('webhookBearerToken').value = this.settings.webhookBearerToken;
     document.getElementById('webhookUrl').disabled = !this.settings.webhookEnabled;
+    document.getElementById('webhookBearerToken').disabled = !this.settings.webhookEnabled;
     document.getElementById('testWebhook').disabled = !this.settings.webhookEnabled;
     document.getElementById('defaultBillable').checked = this.settings.defaultBillable;
     
@@ -131,6 +135,7 @@ class SettingsManager {
       // Update settings from form
       this.settings.webhookEnabled = document.getElementById('webhookEnabled').checked;
       this.settings.webhookUrl = document.getElementById('webhookUrl').value.trim();
+      this.settings.webhookBearerToken = document.getElementById('webhookBearerToken').value.trim();
       this.settings.defaultCustomer = document.getElementById('defaultCustomer').value;
       this.settings.defaultProject = document.getElementById('defaultProject').value;
       this.settings.defaultBillable = document.getElementById('defaultBillable').checked;
@@ -182,7 +187,7 @@ class SettingsManager {
     }
 
     try {
-      const testData = {
+      const testTask = {
         id: Date.now(),
         title: 'Test Task',
         customer: 'Test Customer',
@@ -192,12 +197,36 @@ class SettingsManager {
         endTime: new Date(),
         duration: 3600000 // 1 hour
       };
+      
+      const projectedRevenue = this.calculateTaskRevenue(testTask);
+      
+      const testData = {
+        "Action": "Create",
+        "Task ID": testTask.id,
+        "Task Title": testTask.title,
+        "Customer": testTask.customer,
+        "Project": testTask.project,
+        "Billable": testTask.billable ? 'Y' : 'N',
+        "Start Time": testTask.startTime,
+        "End Time": testTask.endTime,
+        "Duration (seconds)": Math.floor((Number(testTask.duration) || 0) / 1000),
+        "Projected Revenue": projectedRevenue > 0 ? projectedRevenue : null,
+        "Currency": this.settings.currency || 'EUR'
+      };
 
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Add Authorization header if bearer token is configured
+      const bearerToken = document.getElementById('webhookBearerToken').value.trim();
+      if (bearerToken) {
+        headers['Authorization'] = `Bearer ${bearerToken}`;
+      }
+      
       const response = await fetch(webhookUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: JSON.stringify(testData)
       });
 
@@ -251,7 +280,7 @@ class SettingsManager {
       return startTimeA.getTime() - startTimeB.getTime();
     });
     
-    const headers = ['Task ID', 'Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)', 'Projected Revenue'];
+    const headers = ['Task ID', 'Task Title', 'Customer', 'Project', 'Billable', 'Start Time', 'End Time', 'Duration (seconds)', 'Projected Revenue', 'Currency'];
     const rows = sortedTasks.map(task => {
       // Ensure we have valid dates
       const startTime = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
@@ -259,7 +288,6 @@ class SettingsManager {
       
       // Calculate projected revenue for this task
       const revenue = this.calculateTaskRevenue(task);
-      const formattedRevenue = revenue > 0 ? this.formatCurrency(revenue) : '';
       
       return [
         task.id || '',
@@ -270,7 +298,8 @@ class SettingsManager {
         startTime.toISOString(),
         endTime ? endTime.toISOString() : '',
         Math.floor((Number(task.duration) || 0) / 1000),
-        `"${formattedRevenue}"`
+        revenue > 0 ? revenue : '',
+        `"${this.settings.currency || 'EUR'}"`
       ];
     });
     
