@@ -619,14 +619,14 @@ class TimeTracker {
       if (customerDatalist) {
         customerDatalist.innerHTML = this.state.customers.map(c => {
           const parsed = this.parseNameAndRate(c);
-          return `<option value="${parsed.name}">`;
+          return `<option value="${parsed.name}">${parsed.name}</option>`;
         }).join('');
       }
       
       if (projectDatalist) {
         projectDatalist.innerHTML = this.state.projects.map(p => {
           const parsed = this.parseNameAndRate(p);
-          return `<option value="${parsed.name}">`;
+          return `<option value="${parsed.name}">${parsed.name}</option>`;
         }).join('');
       }
     } catch (error) {
