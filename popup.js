@@ -557,12 +557,12 @@ class TimeTracker {
       document.getElementById('editTaskTitle').value = task.title || '';
       document.getElementById('editBillable').checked = task.billable || false;
       
-      // Update datalists
-      this.populateEditDatalists();
+      // Update dropdowns
+      this.populateEditDropdowns();
       
       // Set selected values
-      document.getElementById('editCustomerInput').value = task.customer || '';
-      document.getElementById('editProjectInput').value = task.project || '';
+      document.getElementById('editCustomerSelect').value = task.customer || '';
+      document.getElementById('editProjectSelect').value = task.project || '';
       
       // For current tasks, calculate current duration including active time
       let currentDuration = Number(task.duration) || 0;
@@ -611,26 +611,28 @@ class TimeTracker {
     }
   }
 
-  populateEditDatalists() {
+  populateEditDropdowns() {
     try {
-      const customerDatalist = document.getElementById('editCustomerDatalist');
-      const projectDatalist = document.getElementById('editProjectDatalist');
+      const customerSelect = document.getElementById('editCustomerSelect');
+      const projectSelect = document.getElementById('editProjectSelect');
       
-      if (customerDatalist) {
-        customerDatalist.innerHTML = this.state.customers.map(c => {
-          const parsed = this.parseNameAndRate(c);
-          return `<option value="${parsed.name}">${parsed.name}</option>`;
-        }).join('');
+      if (customerSelect) {
+        customerSelect.innerHTML = '<option value="">Select Customer</option>' +
+          this.state.customers.map(c => {
+            const parsed = this.parseNameAndRate(c);
+            return `<option value="${parsed.name}">${parsed.name}</option>`;
+          }).join('');
       }
       
-      if (projectDatalist) {
-        projectDatalist.innerHTML = this.state.projects.map(p => {
-          const parsed = this.parseNameAndRate(p);
-          return `<option value="${parsed.name}">${parsed.name}</option>`;
-        }).join('');
+      if (projectSelect) {
+        projectSelect.innerHTML = '<option value="">Select Project</option>' +
+          this.state.projects.map(p => {
+            const parsed = this.parseNameAndRate(p);
+            return `<option value="${parsed.name}">${parsed.name}</option>`;
+          }).join('');
       }
     } catch (error) {
-      console.error('Error populating edit datalists:', error);
+      console.error('Error populating edit dropdowns:', error);
     }
   }
 
@@ -650,8 +652,8 @@ class TimeTracker {
       
       // Get form values
       const title = document.getElementById('editTaskTitle').value.trim();
-      const customer = document.getElementById('editCustomerInput').value.trim();
-      const project = document.getElementById('editProjectInput').value.trim();
+      const customer = document.getElementById('editCustomerSelect').value.trim();
+      const project = document.getElementById('editProjectSelect').value.trim();
       const billable = document.getElementById('editBillable').checked;
       const startTimeStr = document.getElementById('editStartTime').value;
       const endTimeStr = document.getElementById('editEndTime').value;
